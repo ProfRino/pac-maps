@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>PAC-MAPS — Street Pac-Man on OpenStreetMap</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cmask id='m'%3E%3Crect width='100' height='100' fill='white'/%3E%3Cpath d='M50 50L100 18V82Z' fill='black'/%3E%3C/mask%3E%3Ccircle cx='50' cy='50' r='45' fill='%23ffd800' mask='url(%23m)'/%3E%3Ccircle cx='51' cy='27' r='5' fill='%23182487'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14,6 +14,7 @@
     --yellow:#ffd800; --cream:#ffe0a8; --red:#ff3b3b;
   }
   *{ box-sizing:border-box; margin:0; padding:0; }
+  button{ touch-action:manipulation; }  /* no double-tap-zoom delay on phones */
   html,body{ height:100%; }
   body{
     display:flex; height:100%; overflow:hidden; background:#0a0a14;
@@ -74,14 +75,13 @@
   #btnRow2{ display:none; flex-direction:column; gap:8px; }
   #hint{ font-size:7px; color:#ffd; line-height:1.8; text-align:center; min-height:12px; }
 
-  #howto{ font-size:7px; color:#cdd6ff; line-height:2; }
-  #howto b{ color:#fff; }
   #footer{ margin-top:auto; font-size:6px; color:#8f9be0; line-height:1.8; text-align:center; }
   #footer a{ color:#cdd6ff; }
-  #muteBtn, #musicBtn, #viewModeBtn{
+  #muteBtn, #musicBtn, #viewModeBtn, #creditBtn{
     border:0; background:var(--panel-darker); color:#fff; border-radius:5px; cursor:pointer;
     padding:7px; font-size:8px; font-family:'Press Start 2P', monospace; width:100%;
   }
+  #creditBtn{ display:block; text-align:center; text-decoration:none; color:var(--yellow); }
   #musicBtn{ color:#9fffe0; }
   #viewModeBtn{ color:var(--yellow); }
   body.playing #viewModeBtn{ display:none; }
@@ -102,7 +102,9 @@
   .leaflet-control-bearing .bearing-reset{ font-size:14px; }
   .leaflet-control-bearing .bearing-reset.is-rotated{ background:var(--yellow); }
   .bearing-north-arrow{ display:block; transform-origin:50% 50%; transition:transform .12s ease-out; }
-  body.compactDevice .leaflet-control-bearing a{ width:34px; height:34px; line-height:34px; }
+  body.compactDevice .leaflet-control-bearing a{ width:44px; height:44px; line-height:44px; font-size:22px; }
+  body.compactDevice .leaflet-control-bearing .bearing-reset{ font-size:18px; }
+  body.compactDevice .leaflet-control-zoom a{ width:44px; height:44px; line-height:44px; font-size:22px; }
   #gameCanvas{
     position:absolute; top:0; left:0; z-index:10; pointer-events:none; display:none;
   }
@@ -131,15 +133,15 @@
   #touchDpad{
     position:absolute; left:calc(14px + env(safe-area-inset-left));
     bottom:calc(14px + env(safe-area-inset-bottom));
-    display:grid; grid-template-columns:repeat(3,48px); grid-template-rows:repeat(3,48px);
-    gap:4px; pointer-events:none;
+    display:grid; grid-template-columns:repeat(3,60px); grid-template-rows:repeat(3,60px);
+    gap:6px; pointer-events:none;
   }
   #touchDpad button, #touchActions button{
     pointer-events:auto; touch-action:none; border:2px solid rgba(255,255,255,.82);
     background:rgba(24,36,135,.82); color:#fff; border-radius:12px;
     box-shadow:0 3px 0 rgba(0,0,0,.55); font-family:'Press Start 2P',monospace;
   }
-  #touchDpad button{ font:700 25px/1 Arial,sans-serif; }
+  #touchDpad button{ font:700 30px/1 Arial,sans-serif; }
   #touchDpad button:active, #touchActions button:active{
     transform:translateY(2px); background:rgba(255,216,0,.92); color:#182487;
     box-shadow:0 1px 0 rgba(0,0,0,.55);
@@ -153,20 +155,30 @@
     bottom:calc(18px + env(safe-area-inset-bottom)); display:flex;
     flex-direction:column; align-items:stretch; gap:9px; pointer-events:none;
   }
-  #touchActions button{ min-width:82px; padding:12px 8px; font-size:7px; }
+  #touchActions button{ min-width:100px; padding:15px 10px; font-size:9px; }
 
   body.compactDevice{ height:100dvh; flex-direction:column; }
   body.compactDevice #sidebar{
       width:100%; min-width:0; height:auto; max-height:44dvh; flex:none;
       padding:8px 10px; gap:8px; display:grid; grid-template-columns:1fr 1fr;
+      grid-auto-rows:max-content;
       overflow-y:auto; box-shadow:0 2px 12px rgba(0,0,0,.5);
   }
   body.compactDevice #logo{ grid-column:1/-1; margin:0; }
-  body.compactDevice #logo .brandMark{ width:23px; height:23px; }
-  body.compactDevice #logo .t1{ font-size:13px; }
-  body.compactDevice #logo .t2{ font-size:6px; margin-top:3px; }
+  body.compactDevice #logo .brandMark{ width:26px; height:26px; }
+  body.compactDevice #logo .t1{ font-size:15px; }
+  body.compactDevice #logo .t2{ font-size:8px; margin-top:4px; }
+  /* phones need chunkier type and >=44px tap targets than the desktop sidebar */
+  body.compactDevice .lbl{ font-size:10px; }
+  body.compactDevice #difficulty button{ font-size:9px; padding:13px 4px; }
+  body.compactDevice #diffDesc{ font-size:9px; line-height:1.8; }
+  body.compactDevice #searchInput{ font-size:16px; padding:12px 11px; }  /* 16px stops focus auto-zoom */
+  body.compactDevice #searchResults div{ font-size:14px; padding:12px; }
+  body.compactDevice .bigBtn{ font-size:13px; padding:16px 6px; }
+  body.compactDevice #hint{ font-size:9px; min-height:0; }
+  body.compactDevice #viewModeBtn{ font-size:10px; padding:12px; }
+  body.compactDevice #zoomWarn{ font-size:10px; line-height:1.7; max-width:92%; }
   body.compactDevice #scoreCard,
-  body.compactDevice #howtoCard,
   body.compactDevice #muteBtn,
   body.compactDevice #musicBtn,
   body.compactDevice #footer{ display:none; }
@@ -175,11 +187,14 @@
   body.compactDevice #playBtn,
   body.compactDevice #btnRow2,
   body.compactDevice #hint,
-  body.compactDevice #viewModeBtn{ grid-column:1/-1; }
+  body.compactDevice #viewModeBtn,
+  body.compactDevice #creditBtn{ grid-column:1/-1; }
+  body.compactDevice #creditBtn{ font-size:10px; padding:12px; }
+  body.compactDevice.playing #creditBtn{ display:none; }
   body.compactDevice #stage{ width:100%; min-height:0; flex:1; }
 
   body.compactDevice.playing #sidebar{
-      height:60px; min-height:60px; max-height:60px; overflow:hidden;
+      height:64px; min-height:64px; max-height:64px; overflow:hidden;
       grid-template-columns:auto minmax(82px,1fr) auto; align-items:center;
       padding:6px 8px; gap:8px;
   }
@@ -192,10 +207,10 @@
   body.compactDevice.playing #scoreCard .lbl,
   body.compactDevice.playing #scoreCard #hiscore,
   body.compactDevice.playing #scoreCard #bonusTag{ display:none; }
-  body.compactDevice.playing #scoreCard #score{ font-size:13px; }
-  body.compactDevice.playing #scoreCard #levelTag{ font-size:6px; margin:0; }
+  body.compactDevice.playing #scoreCard #score{ font-size:15px; }
+  body.compactDevice.playing #scoreCard #levelTag{ font-size:8px; margin:0; }
   body.compactDevice.playing #scoreCard #lives{ margin:0; gap:3px; }
-  body.compactDevice.playing #scoreCard #lives svg{ width:12px; height:12px; }
+  body.compactDevice.playing #scoreCard #lives svg{ width:14px; height:14px; }
   body.compactDevice.playing #difficultyCard,
   body.compactDevice.playing #searchCard,
   body.compactDevice.playing #playBtn,
@@ -204,15 +219,16 @@
       grid-column:auto; flex-direction:row; gap:5px; min-width:0;
   }
   body.compactDevice.playing #btnRow2 .bigBtn{
-      width:auto; min-width:72px; padding:9px 6px; font-size:6px; letter-spacing:0;
+      width:auto; min-width:84px; padding:13px 8px; font-size:8px; letter-spacing:0;
       box-shadow:0 2px 0 rgba(0,0,0,.45);
   }
 
   @media (max-width:520px){
-    #touchDpad{ grid-template-columns:repeat(3,44px); grid-template-rows:repeat(3,44px); }
-    #touchActions button{ min-width:72px; padding:11px 7px; font-size:6px; }
+    body.compactDevice.playing #logo .t1{ display:none; }
+    #touchDpad{ grid-template-columns:repeat(3,56px); grid-template-rows:repeat(3,56px); }
+    #touchActions button{ min-width:88px; padding:13px 8px; font-size:8px; }
     body.compactDevice.playing #retryBtn{ display:none; }
-    body.compactDevice.playing #btnRow2 .bigBtn{ min-width:78px; }
+    body.compactDevice.playing #btnRow2 .bigBtn{ min-width:84px; }
   }
 </style>
 </head>
@@ -269,18 +285,10 @@
   </div>
   <div id="hint" class="px">PAN, ZOOM OR ROTATE TO YOUR STREETS, THEN PRESS PLAY</div>
 
-  <div class="card" id="howtoCard">
-    <div class="lbl px">HOW TO PLAY</div>
-    <div id="howto" class="px">
-      <b>ARROWS / WASD</b> or <b>SWIPE / D-PAD</b> steer<br>
-      <b>P</b> pauses &nbsp;<b>M</b> mutes &nbsp;<b>B</b> toggles music<br>
-      Before play: use <b>↶ N ↷</b>, Shift + wheel, or two fingers to rotate.<br>
-      Eat every dot. Big dots turn the tables on the ghosts! Two classic bonus items appear on every level. Music adapts to the chase.
-    </div>
-  </div>
   <button id="muteBtn" class="px">SOUND: ON</button>
   <button id="musicBtn" class="px" type="button" aria-pressed="true">MUSIC: ON</button>
   <button id="viewModeBtn" class="px" type="button" title="Override automatic device detection">MODE: AUTO</button>
+  <a id="creditBtn" class="px" href="https://github.com/ProfRino/pac-maps" target="_blank" rel="noopener">&#9733; CREDITS &middot; GITHUB</a>
 
   <div id="footer" class="px">
     A TRIBUTE TO GOOGLE MAPS PAC-MAN (2015)<br>
@@ -594,7 +602,7 @@ const map = L.map('map', {
   touchRotate:true,
   shiftKeyRotate:true,
 })
-  .setView([-36.8485, 174.7633], 16);   // Auckland CBD default — search for anywhere
+  .setView([-36.7323, 174.7005], 16);   // Massey University Albany default — search for anywhere
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',

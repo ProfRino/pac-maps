@@ -3,18 +3,12 @@
 [![License: MIT](https://img.shields.io/github/license/ProfRino/pac-maps?label=License&color=yellow)](LICENSE)
 [![Live demo](https://img.shields.io/badge/Live%20demo-profrino.github.io%2Fpac--maps-1f5b96?logo=github&logoColor=white)](https://profrino.github.io/pac-maps/)
 
-PAC-MAPS is **Pac-Man played on the real streets of the world**. Search for
-any place on Earth — your neighbourhood, Manhattan, the Arc de Triomphe —
-and the game turns the actual road network from
-[OpenStreetMap](https://www.openstreetmap.org) into a Pac-Man maze: dots laid
-along every street, power pellets at the corners, and the four classic ghosts
-(**Blinky, Pinky, Inky, Clyde**) hunting you through real intersections,
-one-way tangles and roundabouts. Streets that leave the screen become wrap
-tunnels, just like the original arcade board.
-
-Everything runs client-side in a **single HTML file** — no build step, no
-backend, no game assets: the maze comes from live map data and every sound is
-synthesized in the browser.
+PAC-MAPS is **Pac-Man on the real streets of the world**. Search any place on
+Earth and its [OpenStreetMap](https://www.openstreetmap.org) road network
+becomes the maze — dots along every street, power pellets in the corners, and
+the four classic ghosts hunting you through real intersections. All in a
+**single HTML file**: no build, no backend, no assets — just live map data
+and browser-synthesized sound.
 
 <img src="assets/demo.gif" alt="Demo — Pac-Man chased through the streets of Manhattan, Paris, Barcelona and Rome" width="100%">
 
