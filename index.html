@@ -1,0 +1,2015 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PAC-MAPS — Street Pac-Man on OpenStreetMap</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cmask id='m'%3E%3Crect width='100' height='100' fill='white'/%3E%3Cpath d='M50 50L100 18V82Z' fill='black'/%3E%3C/mask%3E%3Ccircle cx='50' cy='50' r='45' fill='%23ffd800' mask='url(%23m)'/%3E%3Ccircle cx='51' cy='27' r='5' fill='%23182487'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  :root{
+    --panel:#2b3fd8; --panel-dark:#1f2fae; --panel-darker:#182487;
+    --yellow:#ffd800; --cream:#ffe0a8; --red:#ff3b3b;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ height:100%; }
+  body{
+    display:flex; height:100%; overflow:hidden; background:#0a0a14;
+    font-family:Arial, sans-serif;
+  }
+  .px{ font-family:'Press Start 2P', monospace; }
+
+  /* ---------------- sidebar ---------------- */
+  #sidebar{
+    width:250px; min-width:250px; height:100%; background:var(--panel);
+    color:#fff; display:flex; flex-direction:column; padding:16px 14px;
+    gap:14px; overflow-y:auto; z-index:20; box-shadow:2px 0 12px rgba(0,0,0,.5);
+  }
+  #logo{ text-align:center; margin-top:2px; }
+  #logo .brandRow{ display:flex; align-items:center; justify-content:center; gap:8px; }
+  #logo .brandMark{ width:29px; height:29px; flex:none; filter:drop-shadow(2px 2px 0 rgba(0,0,0,.65)); }
+  #logo .t1{ font-size:17px; color:var(--yellow); letter-spacing:1px; text-shadow:2px 2px 0 #000; }
+  #logo .t2{ font-size:8px; color:#cdd6ff; margin-top:7px; letter-spacing:2px; }
+  .card{ background:var(--panel-dark); border-radius:8px; padding:10px; }
+  .lbl{ font-size:8px; color:#aab6ff; letter-spacing:1px; margin-bottom:6px; }
+  #score{ font-size:18px; color:#fff; }
+  #hiscore{ font-size:10px; color:var(--yellow); margin-top:6px; }
+  #levelTag{ font-size:8px; color:#cdd6ff; margin-top:6px; }
+  #bonusTag{ font-size:7px; color:#ffef8a; margin-top:7px; line-height:1.5; }
+  #lives{ display:flex; gap:6px; min-height:18px; margin-top:6px; }
+  #lives svg{ width:16px; height:16px; }
+
+  #difficulty{ display:flex; gap:5px; }
+  #difficulty button{
+    flex:1; padding:8px 2px; font-size:7px; cursor:pointer; border:0; border-radius:5px;
+    background:var(--panel-darker); color:#aab6ff; font-family:'Press Start 2P', monospace;
+  }
+  #difficulty button.sel{ background:var(--yellow); color:#222; }
+  #diffDesc{ font-size:7px; color:#aab6ff; margin-top:7px; line-height:1.7; min-height:24px; }
+
+  #searchBox{ position:relative; }
+  #searchInput{
+    width:100%; padding:8px 9px; border:0; border-radius:5px; font-size:12px;
+    background:#fff; color:#222; outline:none;
+  }
+  #searchResults{
+    position:absolute; left:0; right:0; top:100%; margin-top:3px; background:#fff;
+    border-radius:5px; overflow:hidden; z-index:50; display:none; max-height:180px; overflow-y:auto;
+    box-shadow:0 4px 14px rgba(0,0,0,.4);
+  }
+  #searchResults div{ padding:7px 9px; font-size:11px; color:#222; cursor:pointer; border-bottom:1px solid #eee; }
+  #searchResults div:hover{ background:#e8ecff; }
+
+  .bigBtn{
+    display:block; width:100%; padding:13px 4px; border:0; border-radius:6px; cursor:pointer;
+    font-family:'Press Start 2P', monospace; font-size:11px; letter-spacing:1px;
+    background:var(--yellow); color:#222; box-shadow:0 3px 0 #b89a00;
+  }
+  .bigBtn:active{ transform:translateY(2px); box-shadow:0 1px 0 #b89a00; }
+  .bigBtn:disabled{ background:#5a68c9; color:#8f9be0; box-shadow:none; cursor:not-allowed; }
+  .bigBtn.alt{ background:#fff; box-shadow:0 3px 0 #9aa; }
+  .bigBtn.danger{ background:var(--red); color:#fff; box-shadow:0 3px 0 #8d1515; }
+  #btnRow2{ display:none; flex-direction:column; gap:8px; }
+  #hint{ font-size:7px; color:#ffd; line-height:1.8; text-align:center; min-height:12px; }
+
+  #howto{ font-size:7px; color:#cdd6ff; line-height:2; }
+  #howto b{ color:#fff; }
+  #footer{ margin-top:auto; font-size:6px; color:#8f9be0; line-height:1.8; text-align:center; }
+  #footer a{ color:#cdd6ff; }
+  #muteBtn, #musicBtn, #viewModeBtn{
+    border:0; background:var(--panel-darker); color:#fff; border-radius:5px; cursor:pointer;
+    padding:7px; font-size:8px; font-family:'Press Start 2P', monospace; width:100%;
+  }
+  #musicBtn{ color:#9fffe0; }
+  #viewModeBtn{ color:var(--yellow); }
+  body.playing #viewModeBtn{ display:none; }
+
+  /* ---------------- stage ---------------- */
+  #stage{ position:relative; flex:1; height:100%; overflow:hidden; background:#0a0a14; }
+  #map{ position:absolute; top:0; left:0; width:100%; height:100%; z-index:1; background:#0a0a14; }
+  body.playing .leaflet-tile-pane{ filter:brightness(.42) saturate(.3) contrast(.95); }
+  body.playing .leaflet-control-zoom,
+  body.playing .leaflet-control-bearing{ display:none; }
+  .leaflet-control-bearing a{
+    display:flex; align-items:center; justify-content:center;
+    width:30px; height:30px; color:#182487; font:700 18px/30px Arial,sans-serif;
+    text-decoration:none; background:#fff; cursor:pointer; user-select:none;
+  }
+  .leaflet-control-bearing a:hover,
+  .leaflet-control-bearing a:focus{ background:#f4f4f4; color:#07145f; }
+  .leaflet-control-bearing .bearing-reset{ font-size:14px; }
+  .leaflet-control-bearing .bearing-reset.is-rotated{ background:var(--yellow); }
+  .bearing-north-arrow{ display:block; transform-origin:50% 50%; transition:transform .12s ease-out; }
+  body.compactDevice .leaflet-control-bearing a{ width:34px; height:34px; line-height:34px; }
+  #gameCanvas{
+    position:absolute; top:0; left:0; z-index:10; pointer-events:none; display:none;
+  }
+  #loadOverlay{
+    position:absolute; inset:0; z-index:15; display:none; align-items:center; justify-content:center;
+    background:rgba(6,6,18,.72); color:var(--yellow); flex-direction:column; gap:22px; text-align:center;
+  }
+  #loadOverlay .msg{ font-size:13px; line-height:2; }
+  .pacLoader{ width:34px; height:34px; border-radius:50%; background:var(--yellow); position:relative; animation:chomp .55s infinite; }
+  @keyframes chomp{
+    0%,100%{ clip-path:polygon(0 0,100% 0,100% 100%,0 100%,0 0); }
+    50%{ clip-path:polygon(0 0,100% 0,50% 50%,100% 100%,0 100%); }
+  }
+  #zoomWarn{
+    position:absolute; top:12px; left:50%; transform:translateX(-50%); z-index:16;
+    background:rgba(20,20,40,.88); color:#ffd800; padding:9px 16px; border-radius:6px;
+    font-size:8px; display:none; letter-spacing:1px;
+  }
+
+  /* ---------------- phone / tablet controls ---------------- */
+  #touchControls{
+    position:absolute; inset:0; z-index:18; display:none; pointer-events:none;
+    user-select:none; -webkit-user-select:none;
+  }
+  body.touchDevice.playing:not(.loadingGame) #touchControls{ display:block; }
+  #touchDpad{
+    position:absolute; left:calc(14px + env(safe-area-inset-left));
+    bottom:calc(14px + env(safe-area-inset-bottom));
+    display:grid; grid-template-columns:repeat(3,48px); grid-template-rows:repeat(3,48px);
+    gap:4px; pointer-events:none;
+  }
+  #touchDpad button, #touchActions button{
+    pointer-events:auto; touch-action:none; border:2px solid rgba(255,255,255,.82);
+    background:rgba(24,36,135,.82); color:#fff; border-radius:12px;
+    box-shadow:0 3px 0 rgba(0,0,0,.55); font-family:'Press Start 2P',monospace;
+  }
+  #touchDpad button{ font:700 25px/1 Arial,sans-serif; }
+  #touchDpad button:active, #touchActions button:active{
+    transform:translateY(2px); background:rgba(255,216,0,.92); color:#182487;
+    box-shadow:0 1px 0 rgba(0,0,0,.55);
+  }
+  #touchUp{ grid-column:2; grid-row:1; }
+  #touchLeft{ grid-column:1; grid-row:2; }
+  #touchRight{ grid-column:3; grid-row:2; }
+  #touchDown{ grid-column:2; grid-row:3; }
+  #touchActions{
+    position:absolute; right:calc(14px + env(safe-area-inset-right));
+    bottom:calc(18px + env(safe-area-inset-bottom)); display:flex;
+    flex-direction:column; align-items:stretch; gap:9px; pointer-events:none;
+  }
+  #touchActions button{ min-width:82px; padding:12px 8px; font-size:7px; }
+
+  body.compactDevice{ height:100dvh; flex-direction:column; }
+  body.compactDevice #sidebar{
+      width:100%; min-width:0; height:auto; max-height:44dvh; flex:none;
+      padding:8px 10px; gap:8px; display:grid; grid-template-columns:1fr 1fr;
+      overflow-y:auto; box-shadow:0 2px 12px rgba(0,0,0,.5);
+  }
+  body.compactDevice #logo{ grid-column:1/-1; margin:0; }
+  body.compactDevice #logo .brandMark{ width:23px; height:23px; }
+  body.compactDevice #logo .t1{ font-size:13px; }
+  body.compactDevice #logo .t2{ font-size:6px; margin-top:3px; }
+  body.compactDevice #scoreCard,
+  body.compactDevice #howtoCard,
+  body.compactDevice #muteBtn,
+  body.compactDevice #musicBtn,
+  body.compactDevice #footer{ display:none; }
+  body.compactDevice #difficultyCard{ grid-column:1/-1; }
+  body.compactDevice #searchCard{ grid-column:1/-1; }
+  body.compactDevice #playBtn,
+  body.compactDevice #btnRow2,
+  body.compactDevice #hint,
+  body.compactDevice #viewModeBtn{ grid-column:1/-1; }
+  body.compactDevice #stage{ width:100%; min-height:0; flex:1; }
+
+  body.compactDevice.playing #sidebar{
+      height:60px; min-height:60px; max-height:60px; overflow:hidden;
+      grid-template-columns:auto minmax(82px,1fr) auto; align-items:center;
+      padding:6px 8px; gap:8px;
+  }
+  body.compactDevice.playing #logo{ grid-column:auto; }
+  body.compactDevice.playing #logo .t2{ display:none; }
+  body.compactDevice.playing #scoreCard{
+      display:flex; align-items:center; justify-content:center; gap:8px;
+      background:transparent; padding:0; min-width:0;
+  }
+  body.compactDevice.playing #scoreCard .lbl,
+  body.compactDevice.playing #scoreCard #hiscore,
+  body.compactDevice.playing #scoreCard #bonusTag{ display:none; }
+  body.compactDevice.playing #scoreCard #score{ font-size:13px; }
+  body.compactDevice.playing #scoreCard #levelTag{ font-size:6px; margin:0; }
+  body.compactDevice.playing #scoreCard #lives{ margin:0; gap:3px; }
+  body.compactDevice.playing #scoreCard #lives svg{ width:12px; height:12px; }
+  body.compactDevice.playing #difficultyCard,
+  body.compactDevice.playing #searchCard,
+  body.compactDevice.playing #playBtn,
+  body.compactDevice.playing #hint{ display:none !important; }
+  body.compactDevice.playing #btnRow2{
+      grid-column:auto; flex-direction:row; gap:5px; min-width:0;
+  }
+  body.compactDevice.playing #btnRow2 .bigBtn{
+      width:auto; min-width:72px; padding:9px 6px; font-size:6px; letter-spacing:0;
+      box-shadow:0 2px 0 rgba(0,0,0,.45);
+  }
+
+  @media (max-width:520px){
+    #touchDpad{ grid-template-columns:repeat(3,44px); grid-template-rows:repeat(3,44px); }
+    #touchActions button{ min-width:72px; padding:11px 7px; font-size:6px; }
+    body.compactDevice.playing #retryBtn{ display:none; }
+    body.compactDevice.playing #btnRow2 .bigBtn{ min-width:78px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <div id="logo" aria-label="PAC-MAPS Street Edition">
+    <div class="brandRow">
+      <svg class="brandMark" viewBox="0 0 100 100" aria-hidden="true">
+        <mask id="brandPacMask">
+          <rect width="100" height="100" fill="#fff"/>
+          <path d="M50 50L103 17V83Z" fill="#000"/>
+        </mask>
+        <circle cx="50" cy="50" r="45" fill="#ffd800" mask="url(#brandPacMask)"/>
+        <circle cx="51" cy="27" r="5.5" fill="#182487"/>
+      </svg>
+      <div class="t1 px">PAC-MAPS</div>
+    </div>
+    <div class="t2 px">STREET EDITION</div>
+  </div>
+
+  <div class="card" id="scoreCard">
+    <div class="lbl px">SCORE</div>
+    <div id="score" class="px">0</div>
+    <div id="hiscore" class="px">HI 0</div>
+    <div id="levelTag" class="px">LEVEL 1</div>
+    <div id="bonusTag" class="px">BONUS CHERRY · 100</div>
+    <div id="lives"></div>
+  </div>
+
+  <div class="card" id="difficultyCard">
+    <div class="lbl px">DIFFICULTY</div>
+    <div id="difficulty">
+      <button data-d="easy">EASY</button>
+      <button data-d="medium" class="sel">MEDIUM</button>
+      <button data-d="hard">HARD</button>
+    </div>
+    <div id="diffDesc" class="px"></div>
+  </div>
+
+  <div class="card" id="searchCard">
+    <div class="lbl px">FIND A PLACE</div>
+    <div id="searchBox">
+      <input id="searchInput" type="text" placeholder="Type a place, press Enter…" autocomplete="off">
+      <div id="searchResults"></div>
+    </div>
+    <button id="luckyBtn" class="px" style="margin-top:8px;width:100%;border:0;border-radius:5px;cursor:pointer;padding:8px;font-size:7px;background:#fff;color:#222;">I'M FEELING LUCKY</button>
+  </div>
+
+  <button id="playBtn" class="bigBtn">PLAY HERE</button>
+  <div id="btnRow2">
+    <button id="retryBtn" class="bigBtn">PLAY AGAIN</button>
+    <button id="quitBtn" class="bigBtn danger">NEW AREA</button>
+  </div>
+  <div id="hint" class="px">PAN, ZOOM OR ROTATE TO YOUR STREETS, THEN PRESS PLAY</div>
+
+  <div class="card" id="howtoCard">
+    <div class="lbl px">HOW TO PLAY</div>
+    <div id="howto" class="px">
+      <b>ARROWS / WASD</b> or <b>SWIPE / D-PAD</b> steer<br>
+      <b>P</b> pauses &nbsp;<b>M</b> mutes &nbsp;<b>B</b> toggles music<br>
+      Before play: use <b>↶ N ↷</b>, Shift + wheel, or two fingers to rotate.<br>
+      Eat every dot. Big dots turn the tables on the ghosts! Two classic bonus items appear on every level. Music adapts to the chase.
+    </div>
+  </div>
+  <button id="muteBtn" class="px">SOUND: ON</button>
+  <button id="musicBtn" class="px" type="button" aria-pressed="true">MUSIC: ON</button>
+  <button id="viewModeBtn" class="px" type="button" title="Override automatic device detection">MODE: AUTO</button>
+
+  <div id="footer" class="px">
+    A TRIBUTE TO GOOGLE MAPS PAC-MAN (2015)<br>
+    MAP DATA © <a href="https://www.openstreetmap.org/copyright" target="_blank">OPENSTREETMAP</a> CONTRIBUTORS
+  </div>
+</div>
+
+<div id="stage">
+  <div id="map"></div>
+  <canvas id="gameCanvas"></canvas>
+  <div id="touchControls" aria-label="Touch game controls">
+    <div id="touchDpad" aria-label="Direction pad">
+      <button id="touchUp" type="button" data-dir="up" aria-label="Move up">▲</button>
+      <button id="touchLeft" type="button" data-dir="left" aria-label="Move left">◀</button>
+      <button id="touchRight" type="button" data-dir="right" aria-label="Move right">▶</button>
+      <button id="touchDown" type="button" data-dir="down" aria-label="Move down">▼</button>
+    </div>
+    <div id="touchActions">
+      <button id="touchPause" type="button">PAUSE</button>
+      <button id="touchMute" type="button">SOUND ON</button>
+      <button id="touchMusic" type="button" aria-pressed="true">MUSIC ON</button>
+    </div>
+  </div>
+  <div id="zoomWarn" class="px">ZOOM IN CLOSER TO PLAY (STREET LEVEL)</div>
+  <div id="loadOverlay">
+    <div class="pacLoader"></div>
+    <div class="msg px" id="loadMsg">FETCHING STREETS…</div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate-src.js"></script>
+<script>
+'use strict';
+/* =====================================================================
+   PAC-MAPS — play Pac-Man on real OpenStreetMap streets.
+   Fully client-side: open this file directly in a browser (file://).
+   Inspired by Google Maps' April Fools Pac-Man (2015).
+   ===================================================================== */
+
+/* ---------------- configuration ---------------- */
+const DIFFICULTY = {
+  easy: {
+    label:'EASY', ghosts:['blinky','clyde'], pacSpeed:95, ghostSpeed:66, lives:5,
+    frightSec:9, scatterSec:8, chaseSec:18, pellets:6, releaseEvery:4, smart:false,
+    desc:'2 SLOW GHOSTS, LONG POWER-UPS, 5 LIVES',
+  },
+  medium: {
+    label:'MEDIUM', ghosts:['blinky','pinky','clyde'], pacSpeed:95, ghostSpeed:82, lives:4,
+    frightSec:6.5, scatterSec:6, chaseSec:20, pellets:4, releaseEvery:3, smart:false,
+    desc:'3 GHOSTS, CLASSIC PACE, 4 LIVES',
+  },
+  hard: {
+    label:'HARD', ghosts:['blinky','pinky','inky','clyde'], pacSpeed:97, ghostSpeed:95, lives:3,
+    frightSec:4, scatterSec:4, chaseSec:26, pellets:4, releaseEvery:2, smart:true,
+    desc:'4 FAST GHOSTS. BLINKY HUNTS YOU DOWN.',
+  },
+};
+const BONUS_ITEMS = [
+  { from:1,  kind:'cherry',     label:'CHERRY',     score:100 },
+  { from:2,  kind:'strawberry', label:'STRAWBERRY', score:300 },
+  { from:3,  kind:'orange',     label:'ORANGE',     score:500 },
+  { from:5,  kind:'apple',      label:'APPLE',      score:700 },
+  { from:7,  kind:'melon',      label:'MELON',      score:1000 },
+  { from:9,  kind:'galaxian',   label:'GALAXIAN',   score:2000 },
+  { from:11, kind:'bell',       label:'BELL',       score:3000 },
+  { from:13, kind:'key',        label:'KEY',        score:5000 },
+];
+function bonusForLevel(level){
+  let item=BONUS_ITEMS[0];
+  for(const candidate of BONUS_ITEMS){
+    if(level<candidate.from) break;
+    item=candidate;
+  }
+  return item;
+}
+/* grid-friendly places for the LUCKY button (Google teleported players to
+   curated spots when an area had too few roads) */
+const LUCKY_SPOTS = [
+  ['Manhattan, New York', 40.7549, -73.9840],
+  ['Eixample, Barcelona', 41.3925, 2.1650],
+  ['Arc de Triomphe, Paris', 48.8738, 2.2950],
+  ['Chicago Loop', 41.8837, -87.6289],
+  ['Savannah, Georgia', 32.0733, -81.0933],
+  ['Buenos Aires', -34.6037, -58.3816],
+  ['Melbourne CBD', -37.8136, 144.9631],
+  ['Christchurch, NZ', -43.5309, 172.6365],
+];
+const EXCLUDED_HW = new Set(['footway','cycleway','path','steps','track','bridleway','corridor',
+  'proposed','construction','razed','raceway','escape','bus_guideway','busway','platform',
+  'services','rest_area','elevator','via_ferrata','motorway','motorway_link']);
+const EXCLUDED_SVC = new Set(['parking_aisle','driveway','drive-through','slipway','emergency_access']);
+const GHOST_COLORS = { blinky:'#ff2020', pinky:'#ffb8de', inky:'#00ffde', clyde:'#ffb847' };
+/* overpass-api.de 406s browser requests that lack a Referer header, which a
+   file:// page can never send — so it goes last; maps.mail.ru is verified to
+   work from file:// origins. Final fallback is the OSM main API (map call). */
+const OVERPASS_ENDPOINTS = [
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+  'https://overpass.openstreetmap.fr/api/interpreter',
+  'https://overpass-api.de/api/interpreter',
+];
+const MIN_PLAY_ZOOM = 15;
+const DOT_SPACING = 13;        // px between dots (may grow to cap dot count)
+const MAX_DOTS = 2800;
+const DOT_MIN_GAP = 11;        // global centre-to-centre spacing at junctions
+const DOT_VERTEX_CLEARANCE = 10;
+const DOT_SPECIAL_CLEARANCE = 15;
+const EAT_RADIUS = 8;          // px window for eating a dot along an edge
+const PAC_R = 7.5, GHOST_R = 7.5;
+const COLLIDE_DIST = 11;
+const ROAD_CASING = 13, ROAD_CORE = 8.5;
+const COL = {
+  casing:'#2334e6', core:'#0d0d18', dot:'#ffe0a8', pellet:'#ffe0a8',
+  ready:'#ffd800', gameover:'#ff3b3b', fright:'#2121de', frightFlash:'#e8e8ff',
+};
+const SIDE_N = { L:{x:-1,y:0}, R:{x:1,y:0}, T:{x:0,y:-1}, B:{x:0,y:1} };  // outward normals
+
+/* ---------------- tiny vec helpers ---------------- */
+const dot2 = (a,b)=>a.x*b.x + a.y*b.y;
+const dist2 = (a,b)=>{ const dx=a.x-b.x, dy=a.y-b.y; return dx*dx+dy*dy; };
+const norm = v=>{ const l=Math.hypot(v.x,v.y)||1; return {x:v.x/l, y:v.y/l}; };
+
+/* ---------------- core state (declared early: used by ui callbacks) ---------------- */
+let state='SELECT';   // SELECT | LOADING | READY | PLAYING | DYING | WIN | GAMEOVER | PAUSED
+let game=null;        // active game object
+let graph=null;       // current street graph
+let roadsCanvas=null, roadsFlashCanvas=null, dotsCanvas=null, dotsCtx=null;
+const dpr = Math.max(1, window.devicePixelRatio||1);
+const input = { desired:null };
+
+/* ---------------- dom / ui ---------------- */
+const $ = id=>document.getElementById(id);
+const scoreEl=$('score'), hiscoreEl=$('hiscore'), levelEl=$('levelTag'), bonusEl=$('bonusTag'), livesEl=$('lives');
+const playBtn=$('playBtn'), retryBtn=$('retryBtn'), quitBtn=$('quitBtn'), btnRow2=$('btnRow2');
+const hintEl=$('hint'), diffDescEl=$('diffDesc'), loadOverlay=$('loadOverlay'), loadMsg=$('loadMsg');
+const zoomWarn=$('zoomWarn'), muteBtn=$('muteBtn'), musicBtn=$('musicBtn');
+const canvas=$('gameCanvas'), ctx=canvas.getContext('2d');
+const stage=$('stage'), touchPause=$('touchPause'), touchMute=$('touchMute'), touchMusic=$('touchMusic'), viewModeBtn=$('viewModeBtn');
+
+const coarsePointer=window.matchMedia('(pointer:coarse)');
+const VIEW_MODES=['auto','touch','desktop'];
+let viewMode=localStorage.getItem('pacmaps_view_mode')||'auto';
+if(!VIEW_MODES.includes(viewMode)) viewMode='auto';
+function syncViewMode(){
+  const autoTouch=coarsePointer.matches || navigator.maxTouchPoints>0 || window.innerWidth<=900;
+  const touchEnabled=viewMode==='touch' || (viewMode==='auto'&&autoTouch);
+  // Narrow screens always keep the space-saving layout; the manual Desktop
+  // override changes the controls without making a phone viewport unusably thin.
+  const compactEnabled=viewMode==='touch' || window.innerWidth<=900;
+  document.body.classList.toggle('touchDevice',touchEnabled);
+  document.body.classList.toggle('compactDevice',compactEnabled);
+  document.body.dataset.viewMode=viewMode;
+  document.body.dataset.detectedTouch=autoTouch?'true':'false';
+  viewModeBtn.textContent='MODE: '+viewMode.toUpperCase();
+  viewModeBtn.setAttribute('aria-label','Control mode: '+viewMode+'. Click to change.');
+}
+function cycleViewMode(){
+  if(state!=='SELECT') return;
+  viewMode=VIEW_MODES[(VIEW_MODES.indexOf(viewMode)+1)%VIEW_MODES.length];
+  localStorage.setItem('pacmaps_view_mode',viewMode);
+  syncViewMode();
+  requestAnimationFrame(()=>{ map.invalidateSize(); refreshZoomGate(); });
+}
+viewModeBtn.addEventListener('click',cycleViewMode);
+syncViewMode();
+
+let difficulty = 'medium';
+let muted = localStorage.getItem('pacmaps_muted') === '1';
+let musicEnabled = localStorage.getItem('pacmaps_music') !== '0';
+
+const PAC_LIFE_SVG = '<svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">' +
+  '<path d="M10 10 L19 5 A10 10 0 1 0 19 15 Z" fill="#ffd800"/></svg>';
+
+function updateHud(){
+  const g = game;
+  scoreEl.textContent = g ? g.score : 0;
+  hiscoreEl.textContent = 'HI ' + (localStorage.getItem('pacmaps_hi_'+difficulty) || 0);
+  levelEl.textContent = g ? ('LEVEL ' + g.level) : 'LEVEL 1';
+  const bonus=bonusForLevel(g ? g.level : 1);
+  bonusEl.textContent=`BONUS ${bonus.label} · ${bonus.score}`;
+  livesEl.innerHTML = g ? PAC_LIFE_SVG.repeat(Math.max(0, g.lives)) : '';
+}
+function setDifficulty(d){
+  difficulty = d;
+  document.querySelectorAll('#difficulty button').forEach(b=>b.classList.toggle('sel', b.dataset.d===d));
+  diffDescEl.textContent = DIFFICULTY[d].desc;
+  updateHud();
+}
+document.querySelectorAll('#difficulty button').forEach(b=>{
+  b.addEventListener('click', ()=>{ if(state==='SELECT') setDifficulty(b.dataset.d); });
+});
+function syncAudioButtons(){
+  muteBtn.textContent = 'SOUND: ' + (muted?'OFF':'ON');
+  touchMute.textContent = 'SOUND ' + (muted?'OFF':'ON');
+  musicBtn.textContent = 'MUSIC: ' + (musicEnabled?'ON':'OFF');
+  touchMusic.textContent = 'MUSIC ' + (musicEnabled?'ON':'OFF');
+  musicBtn.setAttribute('aria-pressed',musicEnabled?'true':'false');
+  touchMusic.setAttribute('aria-pressed',musicEnabled?'true':'false');
+  document.body.dataset.sound=muted?'off':'on';
+  document.body.dataset.music=musicEnabled?'on':'off';
+}
+muteBtn.addEventListener('click', ()=>{
+  muted = !muted;
+  localStorage.setItem('pacmaps_muted', muted?'1':'0');
+  if(!muted) ac();
+  syncAudioButtons();
+});
+musicBtn.addEventListener('click', ()=>{
+  musicEnabled = !musicEnabled;
+  localStorage.setItem('pacmaps_music', musicEnabled?'1':'0');
+  if(musicEnabled) ac();
+  musicSoundtrack.reset();
+  syncAudioButtons();
+});
+syncAudioButtons();
+
+/* ---------------- audio (synthesized, no assets) ---------------- */
+let audioCtx = null;
+function ac(){
+  if(!audioCtx){
+    try{ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){}
+  }
+  if(audioCtx && audioCtx.state==='suspended') audioCtx.resume();
+  return audioCtx;
+}
+function tone(freq, dur, type='square', vol=0.12, slideTo=null, when=0){
+  const c = ac(); if(!c || muted) return;
+  const t0 = c.currentTime + when;
+  const o = c.createOscillator(), g = c.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t0);
+  if(slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(20,slideTo), t0+dur);
+  g.gain.setValueAtTime(vol, t0);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+  o.connect(g).connect(c.destination);
+  o.start(t0); o.stop(t0+dur+0.02);
+}
+let wakaFlip=false, wakaLast=0;
+const sfx = {
+  waka(){ const now=performance.now(); if(now-wakaLast<95) return; wakaLast=now;
+    wakaFlip=!wakaFlip; tone(wakaFlip?300:230, 0.055, 'triangle', 0.10); },
+  pellet(){ tone(160,0.4,'sawtooth',0.10,420); },
+  eatGhost(){ tone(200,0.28,'square',0.12,900); },
+  death(){ tone(650,0.9,'sawtooth',0.13,55); },
+  cherry(){ tone(520,0.12,'square',0.12,780); tone(780,0.12,'square',0.10,520,null); },
+  extraLife(){ [660,880,990,1320].forEach((f,i)=>tone(f,0.11,'square',0.11,null,i*0.1)); },
+  win(){ [523,659,784,880,1047,1319].forEach((f,i)=>tone(f,0.1,'triangle',0.12,null,i*0.09)); },
+};
+
+/* The 1980 arcade game used a short opening tune and a reactive soundscape,
+   not a long prerecorded song. This original chiptune follows that structure:
+   its quiet pattern changes for chase, frightened ghosts and returning eyes. */
+const MUSIC_PATTERNS = {
+  scatter:[261.63,329.63,392.00,null,349.23,440.00,392.00,329.63,293.66,349.23,440.00,null,392.00,329.63,293.66,null],
+  chase:[293.66,369.99,440.00,null,392.00,493.88,440.00,369.99,329.63,392.00,493.88,null,440.00,369.99,329.63,null],
+  frightened:[146.83,null,174.61,null,130.81,null,196.00,null],
+  eyes:[523.25,659.25,783.99,659.25,587.33,698.46,880.00,698.46],
+};
+const MUSIC_BASS = [65.41,73.42,82.41,98.00];
+const musicSoundtrack = {
+  step:0, last:0, mode:'idle',
+  reset(){
+    this.step=0; this.last=0; this.mode='idle';
+    canvas.dataset.musicStep='0';
+    canvas.dataset.musicState=musicEnabled ? (muted?'muted':'idle') : 'off';
+  },
+  intro(){
+    if(!musicEnabled || muted) return;
+    this.reset();
+    const notes=[392.00,523.25,659.25,587.33,698.46,880.00,783.99,1046.50];
+    notes.forEach((freq,i)=>tone(freq,0.105,i%2?'triangle':'square',0.055,null,i*0.115));
+    canvas.dataset.musicState='intro';
+  },
+  tick(){
+    let status='idle';
+    if(!musicEnabled) status='off';
+    else if(muted) status='muted';
+    else if(state==='PAUSED') status='paused';
+    else if(state==='PLAYING' && game && game.started) status='playing';
+    else if(state==='READY' || (state==='PLAYING'&&game&&!game.started)) status='armed';
+    canvas.dataset.musicState=status;
+    if(status!=='playing' || !audioCtx){ this.last=performance.now(); return; }
+
+    const now=performance.now();
+    const hasEyes=game.ghosts.some(ghost=>ghost.state==='eyes');
+    const mode=hasEyes ? 'eyes' : (game.frightT>0 ? 'frightened' : game.mode);
+    const interval=mode==='eyes'?92:(mode==='frightened'?112:142);
+    if(now-this.last<interval) return;
+    this.last=now;
+    if(mode!==this.mode){ this.mode=mode; this.step=0; }
+    const pattern=MUSIC_PATTERNS[mode];
+    const freq=pattern[this.step%pattern.length];
+    if(freq) tone(freq,interval/1000*.82,mode==='frightened'?'triangle':'square',mode==='eyes' ? .028 : .022);
+    if(this.step%4===0 && mode!=='eyes'){
+      const bass=MUSIC_BASS[Math.floor(this.step/4)%MUSIC_BASS.length];
+      tone(bass,interval/1000*1.7,'triangle',.014);
+    }
+    this.step++;
+    canvas.dataset.musicMode=mode;
+    canvas.dataset.musicStep=String(this.step);
+  },
+};
+musicSoundtrack.reset();
+setInterval(()=>musicSoundtrack.tick(),60);
+
+/* ---------------- leaflet map + search ---------------- */
+const map = L.map('map', {
+  zoomControl:true,
+  attributionControl:true,
+  rotate:true,
+  rotateControl:false,
+  touchRotate:true,
+  shiftKeyRotate:true,
+})
+  .setView([-36.8485, 174.7633], 16);   // Auckland CBD default — search for anywhere
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+}).addTo(map);
+
+const MAP_INTERACTION_HANDLERS = [
+  'dragging','scrollWheelZoom','doubleClickZoom','boxZoom','keyboard',
+  'touchZoom','touchRotate','shiftKeyRotate','touchGestures',
+];
+function setMapInteractions(enabled){
+  MAP_INTERACTION_HANDLERS.forEach(name=>{
+    const handler=map[name];
+    if(handler && typeof handler[enabled?'enable':'disable']==='function') handler[enabled?'enable':'disable']();
+  });
+}
+
+let bearingResetBtn=null, bearingArrow=null;
+function normalizedBearing(){
+  if(typeof map.getBearing!=='function') return 0;
+  const value=((map.getBearing()%360)+360)%360;
+  return value > 359.95 || value < .05 ? 0 : value;
+}
+function updateBearingControl(){
+  const bearing=normalizedBearing();
+  const rounded=Math.round(bearing);
+  $('map').dataset.bearing=String(rounded);
+  if(!bearingResetBtn || !bearingArrow) return;
+  bearingArrow.style.transform=`rotate(${bearing}deg)`;
+  bearingResetBtn.classList.toggle('is-rotated', bearing!==0);
+  bearingResetBtn.title=bearing===0 ? 'Map is north-up' : `Reset map to north (${rounded}°)`;
+  bearingResetBtn.setAttribute('aria-label', bearing===0 ? 'Map is north-up' : `Reset map to north, currently ${rounded} degrees`);
+}
+function addBearingControl(){
+  if(typeof map.setBearing!=='function' || typeof map.getBearing!=='function') return;
+  const BearingControl=L.Control.extend({
+    options:{position:'topleft'},
+    onAdd(){
+      const box=L.DomUtil.create('div','leaflet-control-bearing leaflet-bar');
+      const button=(className,label,title,onClick)=>{
+        const a=L.DomUtil.create('a',className,box);
+        a.href='#'; a.textContent=label; a.title=title; a.setAttribute('role','button');
+        a.setAttribute('aria-label',title);
+        L.DomEvent.on(a,'click',L.DomEvent.stop).on(a,'click',onClick);
+        return a;
+      };
+      button('bearing-left','↶','Rotate map left 15 degrees',()=>map.setBearing(map.getBearing()-15));
+      bearingResetBtn=button('bearing-reset','','Map is north-up',()=>map.setBearing(0));
+      bearingArrow=L.DomUtil.create('span','bearing-north-arrow',bearingResetBtn);
+      bearingArrow.textContent='▲';
+      button('bearing-right','↷','Rotate map right 15 degrees',()=>map.setBearing(map.getBearing()+15));
+      L.DomEvent.disableClickPropagation(box);
+      L.DomEvent.disableScrollPropagation(box);
+      return box;
+    },
+  });
+  map.addControl(new BearingControl());
+  map.on('rotate',updateBearingControl);
+  updateBearingControl();
+}
+addBearingControl();
+
+function viewportKm(){
+  const b = map.getBounds();
+  return map.distance(b.getNorthWest(), b.getNorthEast())/1000;
+}
+function refreshZoomGate(){
+  const ok = map.getZoom() >= MIN_PLAY_ZOOM && viewportKm() <= 3.6;
+  if(state==='SELECT'){
+    playBtn.disabled = !ok;
+    zoomWarn.style.display = ok ? 'none' : 'block';
+  }
+}
+map.on('zoomend moveend', refreshZoomGate);
+window.addEventListener('resize', ()=>{
+  syncViewMode();
+  if(state==='SELECT') requestAnimationFrame(()=>{ map.invalidateSize(); refreshZoomGate(); });
+});
+refreshZoomGate();
+
+/* Nominatim usage policy: no autocomplete — search only on Enter */
+const searchInput=$('searchInput'), searchResults=$('searchResults');
+searchInput.addEventListener('keydown', e=>{
+  if(e.key==='Enter') doSearch(searchInput.value.trim());
+  e.stopPropagation();
+});
+$('luckyBtn').addEventListener('click', ()=>{
+  if(state!=='SELECT') return;
+  const s = LUCKY_SPOTS[(Math.random()*LUCKY_SPOTS.length)|0];
+  searchInput.value = s[0];
+  map.setView([s[1], s[2]], 16);
+});
+async function doSearch(q){
+  if(!q) return;
+  try{
+    const r = await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&q='+encodeURIComponent(q));
+    const js = await r.json();
+    searchResults.innerHTML='';
+    js.slice(0,6).forEach(it=>{
+      const d=document.createElement('div');
+      d.textContent = it.display_name;
+      d.addEventListener('click', ()=>{
+        searchResults.style.display='none';
+        searchInput.value = it.display_name.split(',')[0];
+        map.setView([+it.lat, +it.lon], Math.max(map.getZoom(), 16));
+      });
+      searchResults.appendChild(d);
+    });
+    searchResults.style.display = js.length ? 'block' : 'none';
+  }catch(e){ /* offline / rate limited — ignore */ }
+}
+document.addEventListener('click', e=>{
+  if(!$('searchBox').contains(e.target)) searchResults.style.display='none';
+});
+
+/* ---------------- street data fetch: Overpass mirrors, then OSM main API ---------------- */
+function keepHighway(tags){
+  if(!tags || !tags.highway) return false;
+  if(EXCLUDED_HW.has(tags.highway)) return false;
+  if(tags.area==='yes') return false;
+  if(tags.service && EXCLUDED_SVC.has(tags.service)) return false;
+  return true;
+}
+async function fetchWithTimeout(url, opts, ms){
+  const ctrl = new AbortController();
+  const to = setTimeout(()=>ctrl.abort(), ms);
+  try{ return await fetch(url, {...opts, signal:ctrl.signal}); }
+  finally{ clearTimeout(to); }
+}
+async function fetchOverpass(ep, bounds){
+  const bbox = [bounds.getSouth(), bounds.getWest(), bounds.getNorth(), bounds.getEast()]
+    .map(v=>v.toFixed(6)).join(',');
+  const query = `[out:json][timeout:25];way["highway"]` +
+    `["highway"!~"^(${[...EXCLUDED_HW].join('|')})$"]` +
+    `["area"!="yes"]["service"!~"^(${[...EXCLUDED_SVC].join('|')})$"]` +
+    `(${bbox});out geom;`;
+  const r = await fetchWithTimeout(ep, {
+    method:'POST',
+    body:'data='+encodeURIComponent(query),
+    headers:{'Content-Type':'application/x-www-form-urlencoded'},
+  }, 12000);
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  const js = await r.json();
+  return (js.elements||[]).filter(w=>w.nodes && w.geometry);
+}
+/* api.openstreetmap.org allows CORS from any origin and shares the domain
+   family with the tiles — the most widely reachable source. The map call
+   returns ALL data in the bbox with a 50k-node limit, so dense areas are
+   fetched as a recursive quadtree of sub-bboxes; highway filtering happens
+   client-side. */
+async function osmMapCall(w, s, e, n, depth){
+  const bbox = [w,s,e,n].map(v=>v.toFixed(6)).join(',');
+  const r = await fetchWithTimeout('https://api.openstreetmap.org/api/0.6/map.json?bbox='+bbox, {}, 45000);
+  if(!r.ok){
+    const txt = await r.text().catch(()=>'');
+    if(depth<2 && /too many nodes/i.test(txt)){
+      const mx=(w+e)/2, my=(s+n)/2;
+      const quads = await Promise.all([
+        osmMapCall(w,s,mx,my,depth+1),  osmMapCall(mx,s,e,my,depth+1),
+        osmMapCall(w,my,mx,n,depth+1), osmMapCall(mx,my,e,n,depth+1),
+      ]);
+      return quads.flat();
+    }
+    throw new Error('OSM API HTTP '+r.status);
+  }
+  const js = await r.json();
+  return js.elements||[];
+}
+async function fetchOsmApi(bounds){
+  const els = await osmMapCall(bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth(), 0);
+  const nodes = new Map(), seenWays = new Set(), ways = [];
+  for(const el of els) if(el.type==='node') nodes.set(el.id, {lat:el.lat, lon:el.lon});
+  for(const el of els){
+    if(el.type!=='way' || seenWays.has(el.id) || !keepHighway(el.tags)) continue;
+    seenWays.add(el.id);
+    const nds=[], geometry=[];
+    for(const id of el.nodes||[]){
+      const n = nodes.get(id);
+      if(n){ nds.push(id); geometry.push(n); }
+    }
+    if(nds.length>=2) ways.push({id:el.id, nodes:nds, geometry, tags:el.tags||{}});
+  }
+  return ways;
+}
+async function fetchStreets(bounds, onProgress){
+  const sources = [
+    ...OVERPASS_ENDPOINTS.map((ep,i)=>()=>fetchOverpass(ep, bounds)),
+    ()=>fetchOsmApi(bounds),
+  ];
+  let lastErr = null;
+  for(let i=0;i<sources.length;i++){
+    if(onProgress) onProgress(`FETCHING STREETS… (SOURCE ${i+1}/${sources.length})`);
+    try{
+      const ways = await sources[i]();
+      if(ways.length) return ways;
+      lastErr = new Error('empty result');
+    }catch(e){ lastErr = e; }
+  }
+  throw lastErr || new Error('all street sources failed');
+}
+
+/* ---------------- street graph ----------------
+   vertices: OSM nodes shared by >=2 way-occurrences, way endpoints, clip points
+   edges: polylines between vertices, in *screen px* of the frozen viewport   */
+function buildGraph(ways, W, H){
+  // 1) count node usage over all kept ways
+  const usage = new Map();
+  for(const w of ways){
+    if(!w.nodes || !w.geometry) continue;
+    for(const id of w.nodes) usage.set(id, (usage.get(id)||0)+1);
+  }
+  // 2) project + clip each way into runs of consecutive in-view points
+  const verts = new Map();   // id -> {x,y}
+  const bSides = new Map();  // vertexId -> 'L'|'R'|'T'|'B' where the street left the screen
+  const tunnelCandidates = []; // two clipped ends of the same visible street run
+  let edges = [];
+  const adj = new Map();     // vertexId -> [halfEdge]
+  const addVert = (id,x,y)=>{ if(!verts.has(id)) verts.set(id,{x,y}); return id; };
+  const sideAt = p=>{
+    const ds=[['L',Math.abs(p.x)],['R',Math.abs(p.x-W)],['T',Math.abs(p.y)],['B',Math.abs(p.y-H)]];
+    ds.sort((a,b)=>a[1]-b[1]);
+    return ds[0][1]<=0.5 ? ds[0][0] : null;
+  };
+  const clipSegment=(a,b)=>{
+    const dx=b.x-a.x, dy=b.y-a.y;
+    let t0=0, t1=1;
+    for(const [p,q] of [[-dx,a.x],[dx,W-a.x],[-dy,a.y],[dy,H-a.y]]){
+      if(Math.abs(p)<1e-9){ if(q<0) return null; continue; }
+      const r=q/p;
+      if(p<0){ if(r>t1) return null; if(r>t0) t0=r; }
+      else { if(r<t0) return null; if(r<t1) t1=r; }
+    }
+    if(t0>t1) return null;
+    const at=t=>({x:a.x+dx*t,y:a.y+dy*t});
+    const ca=at(t0), cb=at(t1);
+    ca.side=sideAt(ca); cb.side=sideAt(cb);
+    return {a:ca,b:cb};
+  };
+
+  for(let wi=0;wi<ways.length;wi++){
+    const w=ways[wi];
+    if(!w.nodes || !w.geometry || w.nodes.length!==w.geometry.length) continue;
+    const pts = w.geometry.map(g=>{
+      const p = map.latLngToContainerPoint([g.lat, g.lon]);
+      return {x:p.x, y:p.y};
+    });
+    const inside = pts.map(p=>p.x>=0 && p.x<=W && p.y>=0 && p.y<=H);
+    // runs of consecutive inside points
+    let runStart = -1;
+    for(let i=0;i<=pts.length;i++){
+      const inz = i<pts.length && inside[i];
+      if(inz && runStart<0) runStart=i;
+      if(!inz && runStart>=0){
+        emitRun(w, wi, pts, runStart, i-1, runStart>0, i<pts.length);
+        runStart=-1;
+      }
+    }
+    // A long OSM segment can cross the complete viewport without containing
+    // an in-view node. Clip and keep those crossings as playable edges too.
+    for(let i=0;i<pts.length-1;i++){
+      if(inside[i]||inside[i+1]) continue;
+      const clipped=clipSegment(pts[i],pts[i+1]);
+      if(!clipped || !clipped.a.side || !clipped.b.side) continue;
+      const ids=[`clip:${wi}:${i}:A`,`clip:${wi}:${i}:B`];
+      bSides.set(ids[0],clipped.a.side); bSides.set(ids[1],clipped.b.side);
+      tunnelCandidates.push(ids);
+      emitEdge([clipped.a,clipped.b],ids,0,1);
+    }
+  }
+
+  function emitRun(w, wi, pts, i0, i1, startClip, endClip){
+    const rp=[], ids=[];
+    let startBoundaryId=null, endBoundaryId=null;
+    if(startClip){
+      const clipped=clipSegment(pts[i0-1],pts[i0]);
+      const cp=clipped&&clipped.a;
+      if(cp&&cp.side){
+        if(dist2(cp,pts[i0])<=0.25*0.25){
+          startBoundaryId=w.nodes[i0]; bSides.set(startBoundaryId,cp.side);
+        }else{
+          startBoundaryId=`clip:${wi}:${i0}:S`;
+          rp.push(cp); ids.push(startBoundaryId); bSides.set(startBoundaryId,cp.side);
+        }
+      }
+    }
+    for(let i=i0;i<=i1;i++){ rp.push(pts[i]); ids.push(w.nodes[i]); }
+    if(endClip){
+      const clipped=clipSegment(pts[i1],pts[i1+1]);
+      const cp=clipped&&clipped.b;
+      if(cp&&cp.side){
+        if(dist2(cp,pts[i1])<=0.25*0.25){
+          endBoundaryId=w.nodes[i1]; bSides.set(endBoundaryId,cp.side);
+        }else{
+          endBoundaryId=`clip:${wi}:${i1}:E`;
+          rp.push(cp); ids.push(endBoundaryId); bSides.set(endBoundaryId,cp.side);
+        }
+      }
+    }
+    if(startBoundaryId&&endBoundaryId&&startBoundaryId!==endBoundaryId){
+      tunnelCandidates.push([startBoundaryId,endBoundaryId]);
+    }
+    if(rp.length<2) return;
+    // split run at vertices (usage>=2) — run ends are always vertices
+    let segStart=0;
+    for(let i=1;i<rp.length;i++){
+      const isVert=(i===rp.length-1)||(usage.get(ids[i])>=2);
+      if(isVert){
+        emitEdge(rp,ids,segStart,i);
+        segStart=i;
+      }
+    }
+  }
+
+  function emitEdge(pts, ids, i0, i1){
+    // strip zero-length duplicates
+    const ep=[pts[i0]];
+    for(let i=i0+1;i<=i1;i++){
+      const p=pts[i], q=ep[ep.length-1];
+      if(Math.hypot(p.x-q.x,p.y-q.y)>0.25) ep.push(p);
+    }
+    if(ep.length<2) return;
+    const cum=[0];
+    for(let i=1;i<ep.length;i++) cum.push(cum[i-1]+Math.hypot(ep[i].x-ep[i-1].x, ep[i].y-ep[i-1].y));
+    const len = cum[cum.length-1];
+    if(len < 3) return;
+    const a = addVert(ids[i0], pts[i0].x, pts[i0].y);
+    const b = addVert(ids[i1], pts[i1].x, pts[i1].y);
+    const e = { a, b, pts:ep, cum, len, dots:[] };
+    edges.push(e);
+    const hA = { edge:e, out:+1, from:a, to:b, heading:norm({x:ep[1].x-ep[0].x, y:ep[1].y-ep[0].y}) };
+    const hB = { edge:e, out:-1, from:b, to:a, heading:norm({x:ep[ep.length-2].x-ep[ep.length-1].x, y:ep[ep.length-2].y-ep[ep.length-1].y}) };
+    if(!adj.has(a)) adj.set(a,[]);
+    if(!adj.has(b)) adj.set(b,[]);
+    adj.get(a).push(hA); adj.get(b).push(hB);
+  }
+
+  // 3) keep only the connected component with the greatest total street length
+  const compOf = new Map(); let comp=0;
+  const compLen = [];
+  for(const v of adj.keys()){
+    if(compOf.has(v)) continue;
+    let total=0; const stack=[v]; compOf.set(v,comp);
+    while(stack.length){
+      const u=stack.pop();
+      for(const he of adj.get(u)||[]){
+        total += he.edge.len/2;   // each edge visited from both ends
+        if(!compOf.has(he.to)){ compOf.set(he.to,comp); stack.push(he.to); }
+      }
+    }
+    compLen[comp]=total; comp++;
+  }
+  let best=0;
+  for(let i=1;i<compLen.length;i++) if(compLen[i]>compLen[best]) best=i;
+  let keptEdges = edges.filter(e=>compOf.get(e.a)===best);
+  const keptAdj = new Map();
+  for(const [v,hes] of adj){
+    if(compOf.get(v)===best) keptAdj.set(v, hes);
+  }
+
+  // 4) prune tiny dead-end stubs (dual carriageways & clipped slip roads
+  //    leave sub-dot-length spurs that stall movement)
+  for(let pass=0; pass<4; pass++){
+    let removed=false;
+    for(const v of [...keptAdj.keys()]){
+      const hes = keptAdj.get(v);
+      if(!hes || hes.length!==1) continue;
+      if(bSides.has(v)) continue;  // never prune a genuine screen-edge exit
+      const e = hes[0].edge;
+      if(e.dead || e.len>=22) continue;
+      e.dead = true; removed = true;
+      keptAdj.delete(v);
+      const w = hes[0].to;
+      const arr = keptAdj.get(w);
+      if(arr){
+        const nx = arr.filter(h=>h.edge!==e);
+        if(nx.length) keptAdj.set(w, nx); else keptAdj.delete(w);
+      }
+    }
+    if(!removed) break;
+  }
+  keptEdges = keptEdges.filter(e=>!e.dead);
+
+  // 5) Pair every screen-edge exit. Prefer the two clipped ends of the same
+  //    street run, even when they leave on adjacent sides near a corner.
+  const tunnels = new Map();
+  const bVerts = [...keptAdj.keys()].filter(v=>bSides.has(v));
+  const used = new Set();
+  const linkPair=(a,b)=>{
+    if(a===b||used.has(a)||used.has(b)||!keptAdj.has(a)||!keptAdj.has(b)) return false;
+    used.add(a); used.add(b);
+    tunnels.set(a,b); tunnels.set(b,a);
+    return true;
+  };
+  for(const [a,b] of tunnelCandidates) linkPair(a,b);
+
+  // Then preserve the familiar left/right and top/bottom wrapping where the
+  // OSM way was split before it reached the opposite edge.
+  const pairSides=(sa,sb,axis)=>{
+    const aa=bVerts.filter(v=>!used.has(v)&&bSides.get(v)===sa);
+    const bb=bVerts.filter(v=>!used.has(v)&&bSides.get(v)===sb);
+    const options=[];
+    for(const a of aa) for(const b of bb){
+      options.push({a,b,d:Math.abs(verts.get(a)[axis]-verts.get(b)[axis])});
+    }
+    options.sort((a,b)=>a.d-b.d);
+    for(const p of options){
+      linkPair(p.a,p.b);
+    }
+  };
+  pairSides('L','R','y');
+  pairSides('T','B','x');
+
+  // Pair any remaining adjacent-side or same-side exits, keeping destinations
+  // far apart so a tunnel never appears to bounce Pac-Man back beside himself.
+  const leftovers=()=>bVerts.filter(v=>!used.has(v));
+  const remainingOptions=[];
+  const rem=leftovers();
+  for(let i=0;i<rem.length;i++) for(let j=i+1;j<rem.length;j++){
+    const a=verts.get(rem[i]), b=verts.get(rem[j]);
+    const d=Math.hypot((a.x-b.x)/Math.max(1,W),(a.y-b.y)/Math.max(1,H));
+    remainingOptions.push({a:rem[i],b:rem[j],d});
+  }
+  remainingOptions.sort((a,b)=>b.d-a.d);
+  for(const p of remainingOptions) linkPair(p.a,p.b);
+
+  // An odd number of exits cannot form only reciprocal pairs. Give the final
+  // exit a deterministic one-way destination instead of leaving it as a trap.
+  const last=leftovers()[0];
+  if(last){
+    const a=verts.get(last);
+    const destinations=bVerts.filter(v=>v!==last).sort((u,v)=>{
+      const pu=verts.get(u), pv=verts.get(v);
+      const du=Math.hypot((a.x-pu.x)/Math.max(1,W),(a.y-pu.y)/Math.max(1,H));
+      const dv=Math.hypot((a.x-pv.x)/Math.max(1,W),(a.y-pv.y)/Math.max(1,H));
+      return dv-du;
+    });
+    if(destinations.length) tunnels.set(last,destinations[0]);
+  }
+
+  return { verts, edges:keptEdges, adj:keptAdj, tunnels, bSides, W, H };
+}
+
+/* geometry along an edge */
+function segIndexAt(e, s){
+  s = Math.max(0, Math.min(e.len, s));
+  let i=0;
+  while(i<e.cum.length-2 && e.cum[i+1]<s) i++;
+  return i;
+}
+function posAt(e, s){
+  const i=segIndexAt(e,s);
+  const l=e.cum[i+1]-e.cum[i] || 1;
+  const t=(Math.max(0,Math.min(e.len,s))-e.cum[i])/l;
+  return { x:e.pts[i].x+(e.pts[i+1].x-e.pts[i].x)*t, y:e.pts[i].y+(e.pts[i+1].y-e.pts[i].y)*t };
+}
+function headingAt(e, s, dir){
+  // nudge sample point toward the interior so exact endpoints work
+  const i=segIndexAt(e, Math.max(0.01, Math.min(e.len-0.01, s)));
+  const h=norm({x:e.pts[i+1].x-e.pts[i].x, y:e.pts[i+1].y-e.pts[i].y});
+  return dir>0 ? h : {x:-h.x, y:-h.y};
+}
+
+/* Dijkstra: first half-edge on shortest path fromV -> toV (small graphs) */
+function shortestNext(adj, fromV, toV){
+  if(fromV===toV) return null;
+  const dist=new Map([[fromV,0]]), prev=new Map();
+  const pq=[[0,fromV]];
+  while(pq.length){
+    let bi=0;
+    for(let i=1;i<pq.length;i++) if(pq[i][0]<pq[bi][0]) bi=i;
+    const [d,v]=pq.splice(bi,1)[0];
+    if(d>(dist.get(v)??Infinity)) continue;
+    if(v===toV) break;
+    for(const he of adj.get(v)||[]){
+      const nd=d+he.edge.len;
+      if(nd < (dist.get(he.to)??Infinity)){
+        dist.set(he.to,nd); prev.set(he.to,{he,from:v}); pq.push([nd,he.to]);
+      }
+    }
+  }
+  if(!prev.has(toV)) return null;
+  let v=toV, first=null;
+  while(v!==fromV){ const p=prev.get(v); first=p.he; v=p.from; }
+  return first;
+}
+
+/* ---------------- game entities ---------------- */
+function makeEntity(){ return { restV:null, edge:null, s:0, dir:1, lastHeading:{x:1,y:0} }; }
+function entPos(ent){ return ent.edge ? posAt(ent.edge, ent.s) : graph.verts.get(ent.restV); }
+function entHeading(ent){ return ent.edge ? headingAt(ent.edge, ent.s, ent.dir) : ent.lastHeading; }
+function enterHE(ent, he){
+  ent.edge=he.edge; ent.dir=he.out; ent.s = he.out>0 ? 0 : he.edge.len;
+  ent.restV=null; ent.lastHeading = he.heading;
+}
+
+/* advance an entity by `d` px; hooks: choose(ent,v,arrHeading,cameEdge,cameDir),
+   traverse(e,s0,s1), atVertex(v), wantsTunnel(v).
+   choose()===null at a vertex with a tunnel pair = wrap to the other screen edge. */
+function advance(ent, d, hooks){
+  let guard=0, teleported=false;
+  while(d>1e-4 && guard++<60){
+    if(ent.restV!=null){
+      const he = hooks.choose(ent, ent.restV, ent.lastHeading, null, 0);
+      if(he){ enterHE(ent, he); }
+      else if(!teleported && graph.tunnels.has(ent.restV)
+              && hooks.wantsTunnel && hooks.wantsTunnel(ent.restV)){
+        teleported = true;
+        ent.restV = graph.tunnels.get(ent.restV);
+        continue;
+      }
+      else return;
+    }
+    const e=ent.edge;
+    const end = ent.dir>0 ? e.len : 0;
+    const room = Math.abs(end-ent.s);
+    if(d < room){
+      const s2 = ent.s + ent.dir*d;
+      if(hooks.traverse) hooks.traverse(e, ent.s, s2);
+      ent.s = s2; d = 0;
+    }else{
+      if(hooks.traverse) hooks.traverse(e, ent.s, end);
+      ent.s = end; d -= room;
+      const v = ent.dir>0 ? e.b : e.a;
+      if(hooks.atVertex) hooks.atVertex(v);
+      const arrHeading = headingAt(e, ent.s, ent.dir);
+      const he = hooks.choose(ent, v, arrHeading, e, ent.dir);
+      if(he){ enterHE(ent, he); }
+      else if(!teleported && graph.tunnels.has(v)){
+        teleported = true;
+        ent.restV = graph.tunnels.get(v);
+        ent.edge = null; ent.lastHeading = arrHeading;
+      }
+      else { ent.restV=v; ent.edge=null; ent.lastHeading=arrHeading; return; }
+    }
+  }
+}
+
+/* pac steering */
+function pacChoose(ent, v, arrHeading, cameEdge, cameDir){
+  const hes = graph.adj.get(v)||[];
+  const isRev = h => cameEdge && h.edge===cameEdge && h.out===-cameDir;
+  const pool = cameEdge ? hes.filter(h=>!isRev(h)) : hes.slice();
+  const des = input.desired;
+  if(des){
+    let bestH=null, bestD=0.25;
+    for(const h of pool){ const dd=dot2(h.heading,des); if(dd>bestD){ bestD=dd; bestH=h; } }
+    if(bestH) return bestH;
+    if(cameEdge && dot2(des,arrHeading)<-0.5){
+      const r = hes.find(isRev); if(r) return r;
+    }
+  }
+  if(cameEdge && graph.tunnels.has(v)){                    // pushing off-screen: wrap
+    const n = SIDE_N[graph.bSides.get(v)];
+    if(des ? dot2(des,n)>0.4 : dot2(arrHeading,n)>0.6) return null;
+  }
+  if(cameEdge){
+    if(pool.length===1) return pool[0];                    // follow the road
+    let bestH=null, bestD=0.5;
+    for(const h of pool){ const dd=dot2(h.heading,arrHeading); if(dd>bestD){ bestD=dd; bestH=h; } }
+    if(bestH) return bestH;                                // keep going straight-ish
+  }
+  return null;                                             // stop and wait
+}
+/* resting pac may tunnel only when the player is steering into the screen edge */
+function pacWantsTunnel(v){
+  const side = graph.bSides.get(v);
+  if(!side || !input.desired) return false;
+  return dot2(input.desired, SIDE_N[side]) > 0.4;
+}
+
+/* ghost steering */
+function ghostChoose(g){
+  return function(ent, v, arrHeading, cameEdge, cameDir){
+    const hes = graph.adj.get(v)||[];
+    if(!hes.length) return null;
+    const isRev = h => cameEdge && h.edge===cameEdge && h.out===-cameDir;
+    let pool = hes.filter(h=>!isRev(h));
+    if(!pool.length){
+      if(graph.tunnels.has(v)) return null;   // dead end at the screen edge: wrap
+      pool = hes;
+    }
+    if(g.state==='eyes'){
+      if(v===game.baseV){ g.state='waiting'; g.release=1; return null; }
+      const he = shortestNext(graph.adj, v, game.baseV);
+      return he || pool[(Math.random()*pool.length)|0];
+    }
+    if(g.state==='frightened'){
+      return pool[(Math.random()*pool.length)|0];
+    }
+    if(game.cfg.smart && g.name==='blinky' && g.state==='chase'){
+      const he = shortestNext(graph.adj, v, pacTargetVertex());
+      if(he && !isRev(he)) return he;
+    }
+    const target = ghostTarget(g);
+    const vp = graph.verts.get(v);
+    let bestH=pool[0], bestD=Infinity;
+    for(const h of pool){
+      const probe = { x:vp.x+h.heading.x*26, y:vp.y+h.heading.y*26 };
+      const dd = dist2(probe, target);
+      if(dd<bestD){ bestD=dd; bestH=h; }
+    }
+    return bestH;
+  };
+}
+function pacTargetVertex(){
+  const p = game.pac;
+  if(p.edge) return p.dir>0 ? p.edge.b : p.edge.a;
+  return p.restV;
+}
+function ghostTarget(g){
+  const pac = game.pac, pp = entPos(pac), ph = entHeading(pac);
+  if(g.state==='scatter') return g.corner;
+  switch(g.name){
+    case 'blinky': return pp;
+    case 'pinky':  return { x:pp.x+ph.x*80, y:pp.y+ph.y*80 };
+    case 'inky': {
+      const bl = game.ghosts.find(x=>x.name==='blinky');
+      const bp = bl ? entPos(bl) : pp;
+      const ahead = { x:pp.x+ph.x*40, y:pp.y+ph.y*40 };
+      return { x:2*ahead.x-bp.x, y:2*ahead.y-bp.y };
+    }
+    case 'clyde': {
+      const gp = entPos(g);
+      return dist2(gp,pp) > 150*150 ? pp : g.corner;
+    }
+  }
+  return pp;
+}
+
+/* ---------------- game setup ---------------- */
+function pickSpawns(gr, cfg){
+  const cx=gr.W/2, cy=gr.H/2;
+  const vlist=[...gr.adj.keys()];
+  const deg = v=>(gr.adj.get(v)||[]).length;
+  const byDist = (x,y)=>vlist.slice().sort((a,b)=>{
+    const pa=gr.verts.get(a), pb=gr.verts.get(b);
+    return dist2(pa,{x,y})-dist2(pb,{x,y});
+  });
+  const central = byDist(cx,cy);
+  let pacV = central.find(v=>deg(v)>=2) ?? central[0];
+  const pacP = gr.verts.get(pacV);
+  let baseV = central.find(v=>v!==pacV && deg(v)>=2 && dist2(gr.verts.get(v),pacP)>70*70)
+           ?? central.find(v=>v!==pacV) ?? pacV;
+
+  // pellets: nearest suitable vertex to each viewport corner (plus mid-edges on easy)
+  const anchors = [ {x:0,y:0},{x:gr.W,y:0},{x:0,y:gr.H},{x:gr.W,y:gr.H} ];
+  if(cfg.pellets>4) anchors.push({x:gr.W/2,y:0},{x:gr.W/2,y:gr.H});
+  const pellets=[];
+  for(const a of anchors.slice(0,cfg.pellets)){
+    const cand = byDist(a.x,a.y).find(v=>{
+      if(v===pacV) return false;
+      const p=gr.verts.get(v);
+      if(dist2(p,pacP)<110*110) return false;
+      return !pellets.some(pl=>dist2(gr.verts.get(pl.v),p)<90*90);
+    });
+    if(cand){
+      const p=gr.verts.get(cand);
+      pellets.push({ v:cand, x:p.x, y:p.y, eaten:false });
+    }
+  }
+  return { pacV, baseV, pellets };
+}
+
+function generateDots(gr, reserved=[]){
+  // Every retained OSM highway is a navigable centreline (area highways were
+  // filtered out at fetch time). Candidate dots are created on every road,
+  // then globally spaced so short segments cannot form blobs at junctions.
+  const totalLen = gr.edges.reduce((s,e)=>s+e.len,0);
+  const spacing = Math.max(DOT_SPACING, totalLen/MAX_DOTS);
+  const candidates=[];
+  for(const e of [...gr.edges].sort((a,b)=>b.len-a.len)){
+    e.dots=[];
+    if(e.len<8) continue;
+    const endGap=Math.min(DOT_VERTEX_CLEARANCE,e.len/2);
+    const usable=e.len-endGap*2;
+    if(usable < spacing*0.6){
+      const s=e.len/2, p=posAt(e,s);
+      candidates.push({edge:e,s,x:p.x,y:p.y});
+      continue;
+    }
+    const n = Math.floor(usable/spacing)+1;
+    const span=(n-1)*spacing, s0=(e.len-span)/2;
+    for(let i=0;i<n;i++){
+      const s=s0+i*spacing, p=posAt(e,s);
+      candidates.push({edge:e,s,x:p.x,y:p.y});
+    }
+  }
+
+  const hash=new Map(), cell=DOT_MIN_GAP, minGap2=DOT_MIN_GAP*DOT_MIN_GAP;
+  const key=(x,y)=>Math.floor(x/cell)+','+Math.floor(y/cell);
+  const accepted=[];
+  for(const d of candidates){
+    if(reserved.some(p=>dist2(d,p)<(p.clearance||DOT_SPECIAL_CLEARANCE)**2)) continue;
+    const cx=Math.floor(d.x/cell), cy=Math.floor(d.y/cell);
+    let crowded=false;
+    for(let dx=-1;dx<=1&&!crowded;dx++) for(let dy=-1;dy<=1&&!crowded;dy++){
+      const near=hash.get((cx+dx)+','+(cy+dy));
+      if(near && near.some(p=>dist2(d,p)<minGap2)) crowded=true;
+    }
+    if(crowded) continue;
+    const dot={s:d.s,x:d.x,y:d.y,eaten:false};
+    d.edge.dots.push(dot); accepted.push(dot);
+    const k=key(d.x,d.y);
+    if(!hash.has(k)) hash.set(k,[]);
+    hash.get(k).push(dot);
+  }
+  gr.dotStats={candidates:candidates.length,accepted:accepted.length,minGap:DOT_MIN_GAP};
+  return accepted.length;
+}
+
+function fruitMilestones(totalDots){
+  const first=Math.max(8, Math.min(24, Math.round(totalDots*0.08)));
+  const second=Math.max(first+12, Math.min(70, Math.round(totalDots*0.32)));
+  return [first, Math.min(totalDots-2, second)];
+}
+function spawnFruit(g, gr, item){
+  const pacPos=entPos(g.pac);
+  const candidates=[...gr.adj.keys()].map(v=>{
+    const p=gr.verts.get(v);
+    return {v,p,d:Math.sqrt(dist2(p,pacPos))};
+  }).filter(c=>
+    c.d>=55 && c.d<=190 &&
+    c.p.x>=18 && c.p.x<=gr.W-18 && c.p.y>=18 && c.p.y<=gr.H-18
+  ).sort((a,b)=>Math.abs(a.d-105)-Math.abs(b.d-105));
+  const shortlist=candidates.slice(0,8);
+  const chosen=shortlist[(Math.random()*shortlist.length)|0]
+    || candidates[0]
+    || {v:g.baseV,p:gr.verts.get(g.baseV)};
+  if(!chosen || !chosen.p) return false;
+  g.fruit={
+    v:chosen.v, x:chosen.p.x, y:chosen.p.y, t:20,
+    kind:item.kind, label:item.label, score:item.score,
+  };
+  g.popups.push({x:chosen.p.x,y:chosen.p.y-20,text:'BONUS!',color:'#ffef8a',t:1.8});
+  return true;
+}
+
+function newGame(gr){
+  const cfg = DIFFICULTY[difficulty];
+  const { pacV, baseV, pellets } = pickSpawns(gr, cfg);
+  const g = {
+    cfg, level:1, score:0, lives:3, extraLifeGiven:false,
+    pacV, baseV, pellets,
+    dotsLeft:0, pelletsLeft:0, totalDots:0,
+    pac:null, ghosts:[],
+    mode:'scatter', modeT:0, frightT:0, combo:0,
+    time:0, fruit:null, fruitStage:0,
+    popups:[], msg:null, msgT:0,
+    ghostSpeed: cfg.ghostSpeed, pacSpeed: cfg.pacSpeed, frightSec: cfg.frightSec,
+  };
+  g.lives = cfg.lives;
+  game = g;
+  resetBoard(g, gr);
+  resetActors(g, gr);
+  return g;
+}
+function resetBoard(g, gr){
+  const reserved=g.pellets.map(p=>({x:p.x,y:p.y,clearance:DOT_SPECIAL_CLEARANCE}));
+  for(const v of [g.pacV,g.baseV]){
+    const p=gr.verts.get(v);
+    if(p) reserved.push({x:p.x,y:p.y,clearance:DOT_SPECIAL_CLEARANCE});
+  }
+  g.dotsLeft = generateDots(gr,reserved);
+  g.totalDots = g.dotsLeft;
+  canvas.dataset.dotCount=String(g.dotsLeft);
+  canvas.dataset.dotCandidates=String(gr.dotStats.candidates);
+  canvas.dataset.dotMinGap=String(gr.dotStats.minGap);
+  g.pellets.forEach(p=>p.eaten=false);
+  g.pelletsLeft = g.pellets.length;
+  g.fruit=null; g.fruitStage=0; g.time=0;
+  paintDotsCanvas(gr);
+}
+function resetActors(g, gr){
+  input.desired = null;
+  g.pac = makeEntity();
+  g.pac.restV = g.pacV;
+  g.started = false;   // ghosts hold until the player's first steering input
+  g.mode='scatter'; g.modeT=0; g.frightT=0; g.combo=0; g.popups=[];
+  const corners = [ {x:30,y:30},{x:gr.W-30,y:30},{x:gr.W-30,y:gr.H-30},{x:30,y:gr.H-30} ];
+  g.ghosts = g.cfg.ghosts.map((name,i)=>{
+    const gh = makeEntity();
+    gh.name=name; gh.color=GHOST_COLORS[name];
+    gh.state='waiting'; gh.release = 1.2 + i*g.cfg.releaseEvery;
+    gh.restV=g.baseV; gh.corner=corners[i%4]; gh.bob=Math.random()*6;
+    return gh;
+  });
+}
+
+/* ---------------- start / lifecycle ---------------- */
+async function startFromMap(){
+  if(map.getZoom() < MIN_PLAY_ZOOM) return;
+  ac(); // unlock Web Audio from the PLAY button gesture before the map request
+  state='LOADING';
+  playBtn.disabled=true;
+  loadMsg.textContent='FETCHING STREETS…';
+  loadOverlay.style.display='flex';
+  zoomWarn.style.display='none';
+  try{
+    // Mobile selection uses a taller control panel than gameplay. Collapse it
+    // first, then let Leaflet and the graph measure the final play viewport.
+    document.body.classList.add('playing','loadingGame');
+    await new Promise(resolve=>requestAnimationFrame(()=>{
+      map.invalidateSize();
+      requestAnimationFrame(resolve);
+    }));
+    // freeze the viewport: interactions off, fixed pixel size so nothing reflows
+    setMapInteractions(false);
+    const stage=$('stage');
+    const W=stage.clientWidth, H=stage.clientHeight;
+    const mapDiv=$('map');
+    mapDiv.style.width=W+'px'; mapDiv.style.height=H+'px';
+
+    const ways = await fetchStreets(map.getBounds(), m=>{ loadMsg.textContent=m; });
+    loadMsg.textContent='BUILDING MAZE…';
+    await new Promise(r=>setTimeout(r,30));   // let the message paint
+    const gr = buildGraph(ways, W, H);
+    if(gr.adj.size < 6 || gr.edges.length < 5)
+      throw new Error('NOT ENOUGH STREETS HERE.\nTRY A DENSER AREA.');
+    graph = gr;
+    const boundaryExitIds=[...gr.bSides.keys()].filter(v=>gr.adj.has(v));
+    canvas.dataset.boundaryExits=String(boundaryExitIds.length);
+    canvas.dataset.unpairedBoundaryExits=String(boundaryExitIds.filter(v=>!gr.tunnels.has(v)).length);
+    canvas.dataset.tunnelLinks=String(gr.tunnels.size);
+    canvas.dataset.tunnelPairs=String([...gr.tunnels].filter(([a,b])=>String(a)<String(b)&&gr.tunnels.get(b)===a).length);
+
+    canvas.style.width=W+'px'; canvas.style.height=H+'px';
+    canvas.width=Math.round(W*dpr); canvas.height=Math.round(H*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    prerenderRoads(gr);
+
+    const g = newGame(gr);
+    if(g.dotsLeft < 30) throw new Error('NOT ENOUGH STREETS HERE.\nTRY A DENSER AREA.');
+
+    document.body.classList.add('playing');
+    document.body.classList.remove('loadingGame');
+    canvas.style.display='block';
+    loadOverlay.style.display='none';
+    playBtn.style.display='none';
+    btnRow2.style.display='flex';
+    hintEl.textContent='';
+    updateHud();
+    enterReady(true);
+  }catch(e){
+    console.error(e);
+    graph=null; game=null;
+    unfreezeMap();
+    loadOverlay.style.display='none';
+    state='SELECT';
+    playBtn.disabled=false;
+    hintEl.textContent = (e && e.message && e.message.startsWith('NOT ENOUGH'))
+      ? 'NOT ENOUGH STREETS HERE — TRY A DENSER AREA'
+      : 'COULD NOT FETCH STREETS — CHECK CONNECTION & RETRY';
+    refreshZoomGate();
+  }
+}
+function unfreezeMap(){
+  setMapInteractions(true);
+  const mapDiv=$('map');
+  mapDiv.style.width='100%'; mapDiv.style.height='100%';
+  map.invalidateSize();
+  document.body.classList.remove('playing','loadingGame');
+}
+function quitToMap(){
+  state='SELECT'; game=null; graph=null;
+  touchPause.textContent='PAUSE';
+  canvas.style.display='none';
+  btnRow2.style.display='none';
+  playBtn.style.display='block'; playBtn.disabled=false;
+  hintEl.textContent='PAN, ZOOM OR ROTATE TO YOUR STREETS, THEN PRESS PLAY';
+  unfreezeMap();
+  updateHud();
+  refreshZoomGate();
+}
+function retrySameArea(){
+  if(!graph) return;
+  newGame(graph);
+  updateHud();
+  enterReady(true);
+}
+function enterReady(withJingle){
+  state='READY';
+  touchPause.textContent='PAUSE';
+  game.msg='READY!'; game.msgT=2.2;
+  musicSoundtrack.reset();
+  if(withJingle) musicSoundtrack.intro();
+}
+function nextLevel(){
+  const g=game;
+  g.level++;
+  g.ghostSpeed = Math.min(g.cfg.ghostSpeed*1.05**(g.level-1), g.pacSpeed*1.12);
+  g.frightSec = Math.max(2, g.cfg.frightSec - 0.6*(g.level-1));
+  resetBoard(g, graph);
+  resetActors(g, graph);
+  updateHud();
+  enterReady(false);
+}
+function loseLife(){
+  const g=game;
+  g.lives--;
+  updateHud();
+  if(g.lives<=0){
+    state='GAMEOVER';
+    g.msg='GAME OVER'; g.msgT=Infinity;
+    updateHud();
+  }else{
+    resetActors(g, graph);
+    enterReady(false);
+  }
+}
+function addScore(n){
+  const g=game;
+  g.score+=n;
+  const key='pacmaps_hi_'+difficulty;
+  if(g.score > +(localStorage.getItem(key)||0)) localStorage.setItem(key, g.score);
+  if(!g.extraLifeGiven && g.score>=10000){
+    g.extraLifeGiven=true; g.lives++; sfx.extraLife();
+    g.popups.push({x:graph.W/2,y:40,text:'EXTRA LIFE!',color:'#ffd800',t:2});
+  }
+  updateHud();
+}
+
+playBtn.addEventListener('click', startFromMap);
+retryBtn.addEventListener('click', ()=>{ if(game && graph) retrySameArea(); });
+quitBtn.addEventListener('click', quitToMap);
+
+/* ---------------- update loop ---------------- */
+function update(dt){
+  const g=game;
+  if(!g) return;
+
+  if(g.msg && g.msgT!==Infinity){
+    g.msgT-=dt;
+    if(g.msgT<=0){
+      g.msg=null;
+      if(state==='READY') state='PLAYING';
+      else if(state==='WIN'){ nextLevel(); return; }
+    }
+  }
+  g.popups.forEach(p=>p.t-=dt);
+  g.popups=g.popups.filter(p=>p.t>0);
+
+  if(state==='DYING'){
+    g.deathT-=dt;
+    if(g.deathT<=0) loseLife();
+    return;
+  }
+  if(state!=='PLAYING') return;
+  if(!g.started) return;   // waiting for first input: nothing moves
+
+  g.time+=dt;
+
+  /* Two reachable bonus fruits appear after a modest number of dots. Using
+     fixed upper bounds keeps fruit attainable even on very large street maps. */
+  const eatenCount=g.totalDots-g.dotsLeft;
+  const nextFruitAt=fruitMilestones(g.totalDots)[g.fruitStage];
+  if(!g.fruit && nextFruitAt!==undefined && eatenCount>=nextFruitAt){
+    if(spawnFruit(g,graph,bonusForLevel(g.level))) g.fruitStage++;
+  }
+  if(g.fruit){
+    g.fruit.t-=dt;
+    if(g.fruit.t<=0) g.fruit=null;
+  }
+
+  /* mode timers */
+  if(g.frightT>0){
+    g.frightT-=dt;
+    if(g.frightT<=0){
+      g.frightT=0;
+      g.ghosts.forEach(gh=>{ if(gh.state==='frightened') gh.state=g.mode; });
+    }
+  }else{
+    g.modeT+=dt;
+    const lim = g.mode==='scatter' ? g.cfg.scatterSec : g.cfg.chaseSec;
+    if(g.modeT>=lim){
+      g.modeT=0;
+      g.mode = g.mode==='scatter' ? 'chase' : 'scatter';
+      g.ghosts.forEach(gh=>{
+        if(gh.state==='scatter'||gh.state==='chase'){
+          gh.state=g.mode;
+          if(gh.edge) gh.dir=-gh.dir;   // classic reversal signal
+        }
+      });
+    }
+  }
+
+  /* ---- pac ---- */
+  const pac=g.pac;
+  if(input.desired && pac.edge){
+    const h=headingAt(pac.edge, pac.s, pac.dir);
+    if(dot2(input.desired,h)<-0.6) pac.dir=-pac.dir;   // mid-street U-turn
+  }
+  advance(pac, g.pacSpeed*dt, {
+    choose: pacChoose,
+    wantsTunnel: pacWantsTunnel,
+    traverse(e, s0, s1){
+      const lo=Math.min(s0,s1)-EAT_RADIUS, hi=Math.max(s0,s1)+EAT_RADIUS;
+      for(const d of e.dots){
+        if(!d.eaten && d.s>=lo && d.s<=hi){
+          d.eaten=true; g.dotsLeft--;
+          clearDot(d);
+          addScore(10); sfx.waka();
+        }
+      }
+    },
+    atVertex(v){
+      const pl=g.pellets.find(p=>p.v===v && !p.eaten);
+      if(pl){
+        pl.eaten=true; g.pelletsLeft--;
+        addScore(50); sfx.pellet();
+        g.combo=0; g.frightT=g.frightSec;
+        g.ghosts.forEach(gh=>{
+          if(gh.state==='scatter'||gh.state==='chase'){
+            gh.state='frightened';
+            if(gh.edge) gh.dir=-gh.dir;
+          }
+        });
+      }
+    },
+  });
+
+  /* fruit pickup */
+  if(g.fruit){
+    const pp=entPos(pac);
+    if(dist2(pp,g.fruit)<12*12){
+      addScore(g.fruit.score); sfx.cherry();
+      g.popups.push({x:g.fruit.x,y:g.fruit.y-12,text:String(g.fruit.score),color:'#ff9de2',t:1.2});
+      g.fruit=null;
+    }
+  }
+
+  /* ---- ghosts ---- */
+  for(const gh of g.ghosts){
+    if(gh.state==='waiting'){
+      gh.release-=dt;
+      gh.bob+=dt*4;
+      if(gh.release<=0){
+        gh.state = g.frightT>0 ? 'frightened' : g.mode;
+        gh.edge = null;
+        gh.restV = g.baseV;
+      }
+      continue;
+    }
+    let spd = g.ghostSpeed;
+    if(gh.state==='frightened') spd*=0.55;
+    if(gh.state==='eyes') spd=Math.max(170, g.ghostSpeed*1.8);
+    advance(gh, spd*dt, { choose: ghostChoose(gh) });
+  }
+
+  /* ---- collisions ---- */
+  const pp=entPos(pac);
+  for(const gh of g.ghosts){
+    if(gh.state==='waiting'||gh.state==='eyes') continue;
+    if(dist2(entPos(gh),pp) < COLLIDE_DIST*COLLIDE_DIST){
+      if(gh.state==='frightened'){
+        const pts=200*(2**g.combo); g.combo=Math.min(3,g.combo+1);
+        addScore(pts); sfx.eatGhost();
+        const gp=entPos(gh);
+        g.popups.push({x:gp.x,y:gp.y-10,text:String(pts),color:'#00ffde',t:1.1});
+        gh.state='eyes';
+      }else{
+        state='DYING'; g.deathT=1.6; sfx.death();
+        return;
+      }
+    }
+  }
+
+  /* ---- level complete ---- */
+  if(g.dotsLeft<=0 && g.pelletsLeft<=0){
+    state='WIN';
+    g.msg='LEVEL CLEARED!'; g.msgT=2.4;
+    sfx.win();
+  }
+}
+
+/* ---------------- render ---------------- */
+function prerenderRoads(gr){
+  const mk = casing=>{
+    const c=document.createElement('canvas');
+    c.width=Math.round(gr.W*dpr); c.height=Math.round(gr.H*dpr);
+    const x=c.getContext('2d'); x.setTransform(dpr,0,0,dpr,0,0);
+    x.lineCap='round'; x.lineJoin='round';
+    for(const pass of [[casing,ROAD_CASING],[COL.core,ROAD_CORE]]){
+      x.strokeStyle=pass[0]; x.lineWidth=pass[1];
+      x.beginPath();
+      for(const e of gr.edges){
+        x.moveTo(e.pts[0].x, e.pts[0].y);
+        for(let i=1;i<e.pts.length;i++) x.lineTo(e.pts[i].x, e.pts[i].y);
+      }
+      x.stroke();
+    }
+    return c;
+  };
+  roadsCanvas = mk(COL.casing);
+  roadsFlashCanvas = mk('#ffffff');
+  dotsCanvas=document.createElement('canvas');
+  dotsCanvas.width=Math.round(gr.W*dpr); dotsCanvas.height=Math.round(gr.H*dpr);
+  dotsCtx=dotsCanvas.getContext('2d');
+  dotsCtx.setTransform(dpr,0,0,dpr,0,0);
+}
+function paintDotsCanvas(gr){
+  if(!dotsCtx) return;
+  dotsCtx.clearRect(0,0,gr.W,gr.H);
+  dotsCtx.fillStyle=COL.dot;
+  for(const e of gr.edges){
+    for(const d of e.dots){
+      if(d.eaten) continue;
+      dotsCtx.beginPath();
+      dotsCtx.arc(d.x,d.y,2.2,0,Math.PI*2);
+      dotsCtx.fill();
+    }
+  }
+}
+function clearDot(d){
+  dotsCtx.clearRect(d.x-4,d.y-4,8,8);
+}
+
+function drawPac(x,y,heading,mouth,r=PAC_R){
+  const ang=Math.atan2(heading.y,heading.x);
+  ctx.fillStyle='#ffd800';
+  ctx.beginPath();
+  ctx.moveTo(x,y);
+  ctx.arc(x,y,r, ang+mouth, ang-mouth+Math.PI*2);
+  ctx.closePath();
+  ctx.fill();
+}
+function drawGhost(gh, t){
+  const p=entPos(gh);
+  let x=p.x, y=p.y;
+  if(gh.state==='waiting'){ y+=Math.sin(gh.bob)*2.5; }
+  const r=GHOST_R;
+  const fright = gh.state==='frightened';
+  const flash = fright && game.frightT<2 && (Math.floor(t*6)%2===0);
+  const h=entHeading(gh);
+
+  if(gh.state!=='eyes'){
+    ctx.fillStyle = fright ? (flash?COL.frightFlash:COL.fright) : gh.color;
+    ctx.beginPath();
+    ctx.arc(x,y-1,r,Math.PI,0);
+    const bot=y-1+r*0.95, wob=Math.floor(t*10)%2? 1:0;
+    ctx.lineTo(x+r,bot);
+    for(let i=0;i<3;i++){
+      const x0=x+r-(i+0.5)*(2*r/3), x1=x+r-(i+1)*(2*r/3);
+      ctx.quadraticCurveTo(x0, bot-3-wob, x1, bot);
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
+  /* eyes */
+  const ex=h.x*1.6, ey=h.y*1.6;
+  for(const off of [-3,3]){
+    ctx.fillStyle='#fff';
+    ctx.beginPath(); ctx.ellipse(x+off+ex*0.4, y-3+ey*0.4, 2.6, 3.1, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = fright ? '#f9bbbb' : '#2233dd';
+    ctx.beginPath(); ctx.arc(x+off+ex, y-3+ey, 1.4, 0, Math.PI*2); ctx.fill();
+  }
+  if(fright && gh.state!=='eyes'){
+    ctx.strokeStyle=flash?'#ff4444':'#f9bbbb'; ctx.lineWidth=1;
+    ctx.beginPath();
+    for(let i=-3;i<=3;i++) ctx.lineTo(x+i*1.6, y+3+((i%2)?1.4:0));
+    ctx.stroke();
+  }
+}
+function drawFruit(c, t){
+  const blink = c.t<3 && Math.floor(t*5)%2===0;
+  if(blink) return;
+  ctx.save();
+  ctx.translate(c.x,c.y);
+  ctx.scale(1.35,1.35);
+  ctx.fillStyle='rgba(3,3,12,.72)';
+  ctx.beginPath(); ctx.arc(0,0,9.5,0,Math.PI*2); ctx.fill();
+  switch(c.kind){
+    case 'strawberry':
+      ctx.fillStyle='#e01b3c';
+      ctx.beginPath();
+      ctx.moveTo(-5,-2);
+      ctx.quadraticCurveTo(-6,4,0,7);
+      ctx.quadraticCurveTo(6,4,5,-2);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle='#2f9e44';
+      ctx.beginPath(); ctx.ellipse(0,-3,5.5,2.4,0,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#ffe9a8';
+      for(const [sx,sy] of [[-2,0],[2,1],[0,3],[-1,4],[3,3]]) ctx.fillRect(sx,sy,1,1.5);
+      break;
+    case 'orange':
+      ctx.fillStyle='#ff8c1a';
+      ctx.beginPath(); ctx.arc(0,1,5.8,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#2fb344';
+      ctx.beginPath(); ctx.ellipse(2,-5,4,1.8,-0.35,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='rgba(255,255,255,.55)';
+      ctx.beginPath(); ctx.arc(-2,-1,1.2,0,Math.PI*2); ctx.fill();
+      break;
+    case 'apple':
+      ctx.fillStyle='#ef3340';
+      ctx.beginPath();
+      ctx.arc(-2,1,4.6,0.15,Math.PI*1.85);
+      ctx.arc(2,1,4.6,Math.PI*1.15,Math.PI*0.85);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle='#9a5a21'; ctx.lineWidth=1.6;
+      ctx.beginPath(); ctx.moveTo(0,-3); ctx.lineTo(1,-8); ctx.stroke();
+      ctx.fillStyle='#45b649';
+      ctx.beginPath(); ctx.ellipse(4,-6,3.4,1.5,0.45,0,Math.PI*2); ctx.fill();
+      break;
+    case 'melon':
+      ctx.fillStyle='#68c95b';
+      ctx.beginPath(); ctx.ellipse(0,1,6.6,5.6,0,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle='#d5f28a'; ctx.lineWidth=1;
+      for(const x of [-3,0,3]){
+        ctx.beginPath(); ctx.moveTo(x,-4); ctx.quadraticCurveTo(x*0.5,1,x,6); ctx.stroke();
+      }
+      ctx.fillStyle='#27883d'; ctx.fillRect(-1,-6,2,2.5);
+      break;
+    case 'galaxian':
+      ctx.fillStyle='#00d8ff';
+      ctx.fillRect(-7,-1,14,4); ctx.fillRect(-5,-4,3,3); ctx.fillRect(2,-4,3,3);
+      ctx.fillRect(-5,3,3,3); ctx.fillRect(2,3,3,3);
+      ctx.fillStyle='#ff3b3b';
+      ctx.fillRect(-2,-7,4,14); ctx.fillRect(-5,-1,10,4);
+      ctx.fillStyle='#ffe45e'; ctx.fillRect(-1,-3,2,6);
+      break;
+    case 'bell':
+      ctx.fillStyle='#ffd83d';
+      ctx.beginPath();
+      ctx.moveTo(-6,4); ctx.quadraticCurveTo(-4,1,-4,-3);
+      ctx.quadraticCurveTo(-4,-7,0,-7);
+      ctx.quadraticCurveTo(4,-7,4,-3);
+      ctx.quadraticCurveTo(4,1,6,4);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle='#ff9f1c'; ctx.fillRect(-6,3,12,2);
+      ctx.beginPath(); ctx.arc(0,6,2,0,Math.PI*2); ctx.fill();
+      break;
+    case 'key':
+      ctx.strokeStyle='#61d9ff'; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.arc(-3,-2,3.5,0,Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0,-1); ctx.lineTo(7,6); ctx.lineTo(5,8); ctx.moveTo(4,3); ctx.lineTo(6,1); ctx.stroke();
+      break;
+    case 'cherry':
+    default:
+      ctx.strokeStyle='#3faa3f'; ctx.lineWidth=1.6;
+      ctx.beginPath(); ctx.moveTo(-2,-2); ctx.quadraticCurveTo(1,-9,6,-9); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(3,-1); ctx.quadraticCurveTo(4,-7,6,-9); ctx.stroke();
+      ctx.fillStyle='#e01b1b';
+      ctx.beginPath(); ctx.arc(-2,1,3.4,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(4,2,3.4,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='rgba(255,255,255,.55)';
+      ctx.beginPath(); ctx.arc(-3,0,1,0,Math.PI*2); ctx.fill();
+      break;
+  }
+  ctx.restore();
+}
+
+let lastFrame=performance.now(), pacPhase=0;
+function frame(now){
+  requestAnimationFrame(frame);
+  const dt=Math.min(0.05,(now-lastFrame)/1000);
+  lastFrame=now;
+  if(!game || state==='SELECT' || state==='LOADING') return;
+
+  if(state!=='PAUSED') update(dt);
+  const g=game; if(!g||!graph) return;
+  const t=now/1000;
+
+  ctx.clearRect(0,0,graph.W,graph.H);
+
+  /* roads + dots */
+  const flash = state==='WIN' && Math.floor(t*4)%2===0;
+  ctx.drawImage(flash?roadsFlashCanvas:roadsCanvas, 0,0, graph.W, graph.H);
+  ctx.drawImage(dotsCanvas, 0,0, graph.W, graph.H);
+
+  /* pellets (pulsing) */
+  const pr = 5 + Math.sin(t*6)*1.4;
+  ctx.fillStyle=COL.pellet;
+  for(const pl of g.pellets){
+    if(pl.eaten) continue;
+    ctx.beginPath(); ctx.arc(pl.x,pl.y,pr,0,Math.PI*2); ctx.fill();
+  }
+
+  if(g.fruit) drawFruit(g.fruit, t);
+
+  /* ghosts */
+  for(const gh of g.ghosts) drawGhost(gh, t);
+
+  /* pac */
+  const pp=entPos(g.pac), ph=entHeading(g.pac);
+  if(state==='DYING'){
+    const k=1-Math.max(0,g.deathT)/1.6;             // 0 → 1
+    const mouth=Math.min(Math.PI, 0.3+k*Math.PI);
+    if(k<0.95) drawPac(pp.x,pp.y,ph,mouth);
+  }else{
+    pacPhase+=dt* (state==='PLAYING'?1:0.4);
+    const mouth=0.08+Math.abs(Math.sin(pacPhase*9))*0.5;
+    drawPac(pp.x,pp.y,ph,mouth);
+  }
+
+  /* popups */
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  for(const p of g.popups){
+    ctx.font='9px "Press Start 2P", monospace';
+    ctx.fillStyle=p.color;
+    ctx.fillText(p.text, p.x, p.y - (1-Math.min(1,p.t))*8);
+  }
+
+  /* big message */
+  if(g.msg){
+    ctx.font='20px "Press Start 2P", monospace';
+    ctx.lineWidth=5; ctx.strokeStyle='rgba(0,0,0,.85)';
+    ctx.strokeText(g.msg, graph.W/2, graph.H/2 - 40);
+    ctx.fillStyle = g.msg==='GAME OVER' ? COL.gameover : COL.ready;
+    ctx.fillText(g.msg, graph.W/2, graph.H/2 - 40);
+  }
+  if(state==='PAUSED'){
+    ctx.font='16px "Press Start 2P", monospace';
+    ctx.lineWidth=5; ctx.strokeStyle='rgba(0,0,0,.85)';
+    ctx.strokeText('PAUSED', graph.W/2, graph.H/2 - 40);
+    ctx.fillStyle='#fff';
+    ctx.fillText('PAUSED', graph.W/2, graph.H/2 - 40);
+  }
+  if((state==='READY' || state==='PLAYING') && !g.started){
+    ctx.font='8px "Press Start 2P", monospace';
+    ctx.lineWidth=4; ctx.strokeStyle='rgba(0,0,0,.85)';
+    const startHint=document.body.classList.contains('touchDevice') ? 'SWIPE OR TAP D-PAD TO MOVE' : 'ARROW KEYS / WASD TO MOVE';
+    ctx.strokeText(startHint, graph.W/2, graph.H/2 - 12);
+    ctx.fillStyle='#fff';
+    ctx.fillText(startHint, graph.W/2, graph.H/2 - 12);
+  }
+}
+requestAnimationFrame(frame);
+
+/* ---------------- input ---------------- */
+const KEYMAP = {
+  ArrowUp:{x:0,y:-1}, ArrowDown:{x:0,y:1}, ArrowLeft:{x:-1,y:0}, ArrowRight:{x:1,y:0},
+  w:{x:0,y:-1}, s:{x:0,y:1}, a:{x:-1,y:0}, d:{x:1,y:0},
+  W:{x:0,y:-1}, S:{x:0,y:1}, A:{x:-1,y:0}, D:{x:1,y:0},
+};
+function steer(dir){
+  if(state!=='PLAYING'&&state!=='READY') return;
+  ac();
+  input.desired=dir;
+  if(game) game.started=true;
+  canvas.dataset.lastInput=`${dir.x},${dir.y}`;
+  canvas.dataset.started=game&&game.started?'true':'false';
+}
+function togglePause(){
+  if(state==='PLAYING') state='PAUSED';
+  else if(state==='PAUSED') state='PLAYING';
+  touchPause.textContent=state==='PAUSED'?'RESUME':'PAUSE';
+  canvas.dataset.gameState=state;
+}
+window.addEventListener('keydown', e=>{
+  if(e.target===searchInput) return;
+  const dir=KEYMAP[e.key];
+  if(dir){
+    e.preventDefault();
+    steer(dir);
+    return;
+  }
+  const k=e.key.toLowerCase();
+  if(k==='p'){
+    togglePause();
+  }else if(k==='m'){
+    muteBtn.click();
+  }else if(k==='b'){
+    musicBtn.click();
+  }else if(e.key==='Enter' && state==='GAMEOVER'){
+    retrySameArea();
+  }
+});
+/* D-pad and swipe steering for touch devices. Pointer events let the same
+   controls remain testable with a mouse in a narrow desktop preview. */
+const TOUCH_DIRS={up:{x:0,y:-1},down:{x:0,y:1},left:{x:-1,y:0},right:{x:1,y:0}};
+document.querySelectorAll('#touchDpad [data-dir]').forEach(button=>{
+  button.addEventListener('pointerdown',e=>{
+    e.preventDefault(); e.stopPropagation(); steer(TOUCH_DIRS[button.dataset.dir]);
+  });
+  button.addEventListener('click',e=>{ if(e.detail===0) steer(TOUCH_DIRS[button.dataset.dir]); });
+});
+touchPause.addEventListener('pointerdown',e=>{ e.preventDefault(); e.stopPropagation(); togglePause(); });
+touchPause.addEventListener('click',e=>{ if(e.detail===0) togglePause(); });
+touchMute.addEventListener('pointerdown',e=>{ e.preventDefault(); e.stopPropagation(); muteBtn.click(); });
+touchMute.addEventListener('click',e=>{ if(e.detail===0) muteBtn.click(); });
+touchMusic.addEventListener('pointerdown',e=>{ e.preventDefault(); e.stopPropagation(); musicBtn.click(); });
+touchMusic.addEventListener('click',e=>{ if(e.detail===0) musicBtn.click(); });
+
+let touchStart=null;
+stage.addEventListener('touchstart', e=>{
+  if(state!=='PLAYING'&&state!=='READY') return;
+  if(e.target.closest&&e.target.closest('#touchControls')) return;
+  ac();
+  touchStart={x:e.touches[0].clientX, y:e.touches[0].clientY};
+},{passive:true});
+stage.addEventListener('touchmove', e=>{
+  if(!touchStart || !e.touches.length) return;
+  const dx=e.touches[0].clientX-touchStart.x;
+  const dy=e.touches[0].clientY-touchStart.y;
+  if(Math.hypot(dx,dy)<24) return;
+  e.preventDefault();
+  steer(Math.abs(dx)>Math.abs(dy) ? {x:Math.sign(dx),y:0} : {x:0,y:Math.sign(dy)});
+  touchStart={x:e.touches[0].clientX,y:e.touches[0].clientY};
+},{passive:false});
+stage.addEventListener('touchend', e=>{
+  if(!touchStart) return;
+  const dx=e.changedTouches[0].clientX-touchStart.x;
+  const dy=e.changedTouches[0].clientY-touchStart.y;
+  touchStart=null;
+  if(Math.hypot(dx,dy)<24) return;
+  steer(Math.abs(dx)>Math.abs(dy) ? {x:Math.sign(dx),y:0} : {x:0,y:Math.sign(dy)});
+},{passive:true});
+
+document.addEventListener('visibilitychange', ()=>{
+  if(document.hidden && state==='PLAYING'){
+    state='PAUSED'; touchPause.textContent='RESUME';
+  }
+});
+
+/* ---------------- boot ---------------- */
+setDifficulty('medium');
+updateHud();
+</script>
+</body>
+</html>

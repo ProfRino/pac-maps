@@ -1,0 +1,6 @@
+# local scratch / capture material — not part of the app
+.vite/
+PacMan.mp4
+google example.gif
+images*.jpg
+capture/

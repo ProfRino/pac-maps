@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you reference this work, please cite it as below."
+title: "PAC-MAPS"
+authors:
+  - family-names: "Lovreglio"
+    given-names: "Ruggiero"
+    affiliation: "Massey University"
+repository-code: "https://github.com/ProfRino/pac-maps"
+license: MIT
+year: 2026
