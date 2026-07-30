@@ -10,7 +10,7 @@ the four classic ghosts hunting you through real intersections. All in a
 **single HTML file**: no build, no backend, no assets — just live map data
 and browser-synthesized sound.
 
-<img src="assets/demo.gif?v=2" alt="Demo — zooming from the real OpenStreetMap map into Manhattan, Paris, Barcelona and Rome, where the streets become a Pac-Man maze" width="100%">
+<img src="assets/demo.gif?v=3" alt="Demo — zooming from the real OpenStreetMap map into Manhattan, Paris, Barcelona and Rome, where the streets become a Pac-Man maze" width="100%">
 
 ---
 
@@ -19,8 +19,9 @@ and browser-synthesized sound.
 Pure client-side — no installation, no backend, no account. One
 self-contained HTML file you can host anywhere or open from disk.
 
-* **Play anywhere on Earth.** A search box (Nominatim geocoding) flies you to
-  any address or landmark; an *I'm Feeling Lucky* button teleports you to
+* **Play anywhere on Earth.** The map opens on your own city (IP-based, no
+  permission prompt). A search box (Nominatim geocoding) flies you to any
+  address or landmark; an *I'm Feeling Lucky* button teleports you to
   curated grid-friendly spots from Manhattan to Christchurch. Whatever roads
   are on screen become the maze.
 * **Real street mazes.** The visible road network is fetched live from

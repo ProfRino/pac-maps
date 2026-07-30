@@ -602,11 +602,41 @@ const map = L.map('map', {
   touchRotate:true,
   shiftKeyRotate:true,
 })
-  .setView([-36.7323, 174.7005], 16);   // Massey University Albany default — search for anywhere
+  .setView([-36.7323, 174.7005], 16);   // Massey University Albany — fallback until IP geolocation resolves
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 }).addTo(map);
+
+/* Start the map near the visitor via IP geolocation (city accuracy, no
+   permission prompt). Skipped as soon as the player pans, searches or
+   starts a game, and on any lookup failure the default view stays. */
+let mapTouched=false;
+const markMapTouched=()=>{ mapTouched=true; };
+document.getElementById('map').addEventListener('pointerdown', markMapTouched, {capture:true, passive:true});
+document.getElementById('map').addEventListener('wheel', markMapTouched, {capture:true, passive:true});
+document.getElementById('searchInput').addEventListener('input', markMapTouched);
+document.getElementById('luckyBtn').addEventListener('click', markMapTouched);
+(async ()=>{
+  const sources=[
+    ['https://get.geojs.io/v1/ip/geo.json', d=>[+d.latitude, +d.longitude]],
+    ['https://ipwho.is/',                   d=>d.success===false ? null : [+d.latitude, +d.longitude]],
+    ['https://ipapi.co/json/',              d=>[+d.latitude, +d.longitude]],
+  ];
+  for(const [url, pick] of sources){
+    try {
+      const ctl=new AbortController();
+      const timer=setTimeout(()=>ctl.abort(), 4000);
+      const res=await fetch(url, {signal: ctl.signal});
+      clearTimeout(timer);
+      if(!res.ok) continue;
+      const co=pick(await res.json());
+      if(!co || !isFinite(co[0]) || !isFinite(co[1]) || (co[0]===0 && co[1]===0)) continue;
+      if(!mapTouched && state==='SELECT') map.setView(co, 16);
+      return;
+    } catch(err) {}
+  }
+})();
 
 const MAP_INTERACTION_HANDLERS = [
   'dragging','scrollWheelZoom','doubleClickZoom','boxZoom','keyboard',
