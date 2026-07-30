@@ -10,7 +10,7 @@ the four classic ghosts hunting you through real intersections. All in a
 **single HTML file**: no build, no backend, no assets — just live map data
 and browser-synthesized sound.
 
-<img src="assets/demo.gif" alt="Demo — Pac-Man chased through the streets of Manhattan, Paris, Barcelona and Rome" width="100%">
+<img src="assets/demo.gif" alt="Demo — zooming from the real OpenStreetMap map into Manhattan, Paris, Barcelona and Rome, where the streets become a Pac-Man maze" width="100%">
 
 ---
 
