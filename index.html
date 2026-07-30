@@ -734,6 +734,8 @@ async function doSearch(q){
       const d=document.createElement('div');
       d.textContent = it.display_name;
       d.addEventListener('click', ()=>{
+        if(state==='LOADING') return;      // streets are being fetched — ignore
+        if(state!=='SELECT') quitToMap();  // picking a new city abandons the current game
         searchResults.style.display='none';
         searchInput.value = it.display_name.split(',')[0];
         map.setView([+it.lat, +it.lon], Math.max(map.getZoom(), 16));
