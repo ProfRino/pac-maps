@@ -14,6 +14,16 @@ and browser-synthesized sound.
 
 ---
 
+## How it was made
+
+Watch the video — how PAC-MAPS was built and a tutorial on playing it:
+
+<a href="https://youtu.be/njFgPIapUPk">
+  <img src="https://img.youtube.com/vi/njFgPIapUPk/maxresdefault.jpg" alt="Watch on YouTube: Pac-Man on Real Streets — I Built PAC-MAPS with Claude Fable 5" width="70%">
+</a>
+
+> **[▶ Pac-Man on Real Streets: I Built PAC-MAPS with Claude Fable 5](https://youtu.be/njFgPIapUPk)**
+
 ## Features
 
 Pure client-side — no installation, no backend, no account. One
